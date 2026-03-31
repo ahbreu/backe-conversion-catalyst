@@ -1,4 +1,4 @@
-import logoDark from "@/assets/logo-backe-dark.png";
+import logoTransparent from "@/assets/logo-backe-transparent.png";
 
 const HeroSection = () => {
   const scrollToForm = () => {
@@ -7,28 +7,65 @@ const HeroSection = () => {
 
   return (
     <section className="relative min-h-screen flex flex-col justify-center overflow-hidden">
-      {/* Background pattern */}
-      <div className="absolute inset-0 opacity-[0.06]">
-        <svg className="w-full h-full" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <polygon
-              key={i}
-              points={`${200 + i * 120},${100 + i * 40} ${300 + i * 120},${50 + i * 30} ${400 + i * 100},${150 + i * 50} ${350 + i * 110},${250 + i * 30} ${250 + i * 100},${200 + i * 40}`}
-              stroke="hsl(14, 91%, 54%)"
-              strokeWidth="1"
-              fill="none"
+      {/* Animated background pattern - hexagonal grid */}
+      <div className="absolute inset-0">
+        <svg className="w-full h-full" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <radialGradient id="glow1" cx="70%" cy="30%" r="50%">
+              <stop offset="0%" stopColor="hsl(14, 91%, 54%)" stopOpacity="0.08" />
+              <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="glow2" cx="30%" cy="70%" r="40%">
+              <stop offset="0%" stopColor="hsl(7, 89%, 55%)" stopOpacity="0.05" />
+              <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <rect width="1200" height="900" fill="url(#glow1)" />
+          <rect width="1200" height="900" fill="url(#glow2)" />
+          {/* Hexagon grid */}
+          {Array.from({ length: 6 }).map((_, row) =>
+            Array.from({ length: 8 }).map((_, col) => {
+              const x = col * 160 + (row % 2 === 0 ? 0 : 80);
+              const y = row * 140;
+              const size = 70;
+              const points = Array.from({ length: 6 }).map((_, i) => {
+                const angle = (Math.PI / 3) * i - Math.PI / 6;
+                return `${x + size * Math.cos(angle)},${y + size * Math.sin(angle)}`;
+              }).join(" ");
+              return (
+                <polygon
+                  key={`hex-${row}-${col}`}
+                  points={points}
+                  stroke="hsl(14, 91%, 54%)"
+                  strokeWidth="0.6"
+                  fill="none"
+                  opacity="0.07"
+                />
+              );
+            })
+          )}
+          {/* Diagonal lines */}
+          {Array.from({ length: 10 }).map((_, i) => (
+            <line
+              key={`diag-${i}`}
+              x1={-100 + i * 150}
+              y1={0}
+              x2={100 + i * 150}
+              y2={900}
+              stroke="hsl(7, 89%, 55%)"
+              strokeWidth="0.4"
+              opacity="0.06"
             />
           ))}
-          {Array.from({ length: 12 }).map((_, i) => (
-            <line
-              key={`l-${i}`}
-              x1={i * 100}
-              y1={0}
-              x2={i * 100 + 200}
-              y2={800}
-              stroke="hsl(7, 89%, 55%)"
-              strokeWidth="0.5"
-              opacity="0.5"
+          {/* Floating dots */}
+          {Array.from({ length: 20 }).map((_, i) => (
+            <circle
+              key={`dot-${i}`}
+              cx={60 + (i * 137) % 1100}
+              cy={40 + (i * 89) % 820}
+              r="1.5"
+              fill="hsl(14, 91%, 54%)"
+              opacity="0.15"
             />
           ))}
         </svg>
@@ -36,7 +73,7 @@ const HeroSection = () => {
 
       {/* Nav */}
       <nav className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-6 md:px-16 py-6">
-        <img src={logoDark} alt="BACKE Creative" className="h-10 md:h-14" />
+        <img src={logoTransparent} alt="BACKE Creative" className="h-10 md:h-14" />
       </nav>
 
       {/* Content */}
