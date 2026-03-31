@@ -19,7 +19,7 @@ const ContactForm = () => {
       return;
     }
     toast.success("Diagnóstico solicitado com sucesso!");
-    setForm({ empresa: "", nicho: "", faturamento: "" });
+    setForm({ nome: "", email: "", whatsapp: "", empresa: "", nicho: "", faturamento: "" });
   };
 
   return (
