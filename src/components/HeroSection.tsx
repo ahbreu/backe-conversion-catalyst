@@ -89,8 +89,7 @@ const HeroSection = () => {
         </h1>
 
         <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto mb-12 font-body leading-relaxed">
-          Nós estudamos seu mercado, entendemos o que realmente move vendas e criamos campanhas
-          pensadas para transformar atenção em clientes e marketing em crescimento real.
+          Criatividade e estratégia unidas para transformar o marketing da sua empresa em um canal de aquisição que gera clientes e escala o faturamento todo mês.
         </p>
 
         <button
