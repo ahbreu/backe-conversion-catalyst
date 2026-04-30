@@ -8,6 +8,26 @@ Landing page institucional da BACKE Creative, feita com Vite, React, TypeScript 
 - `npm run dev`: sobe o ambiente local
 - `npm run build`: gera a versao de producao em `dist`
 
+## Backend
+
+O backend roda localmente na porta `3001`.
+
+1. Copie `backend/.env.example` para `backend/.env`.
+2. Ajuste as variaveis se necessario:
+   - `PORT=3001`
+   - `FRONTEND_URL=http://localhost:8080`
+3. Inicie o servidor:
+
+```sh
+node backend/server.js
+```
+
+Endpoint disponivel:
+
+- `POST /api/leads`
+
+Os leads recebidos sao persistidos localmente em `backend/data/leads.jsonl`.
+
 ## Estrutura principal
 
 - `src/App.tsx`: entrada da aplicacao
