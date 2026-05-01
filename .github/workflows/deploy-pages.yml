@@ -41,6 +41,12 @@ jobs:
       - name: Build site
         env:
           VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH != '' && vars.VITE_BASE_PATH || format('/{0}/', github.event.repository.name) }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_APP_ENV: production
+          VITE_COMPANY_NAME: BACKE.co
+          VITE_MAINTENANCE_MODE: ${{ vars.VITE_MAINTENANCE_MODE != '' && vars.VITE_MAINTENANCE_MODE || 'false' }}
+          VITE_PUBLIC_WHATSAPP_PHONE: ${{ vars.VITE_PUBLIC_WHATSAPP_PHONE }}
+          VITE_PUBLIC_WHATSAPP_MESSAGE: ${{ vars.VITE_PUBLIC_WHATSAPP_MESSAGE }}
         run: npm run build
 
       - name: Write CNAME

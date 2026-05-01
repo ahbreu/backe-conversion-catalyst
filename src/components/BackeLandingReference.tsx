@@ -8,9 +8,9 @@ import {
   sanitizeContactForm,
   validateContactForm,
 } from "@/lib/leadCapture";
+import { API_URL, assertApiUrl } from "@/config/api";
 import "./BackeLandingReference.css";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const PUBLIC_WHATSAPP_PHONE = String(import.meta.env.VITE_PUBLIC_WHATSAPP_PHONE || "").replace(/\D/g, "");
 
 const initialForm: ContactLeadForm = {
@@ -370,6 +370,10 @@ const BackeLandingReference = () => {
     try {
       setIsSubmitting(true);
       setSubmitMessage(null);
+
+      if (!assertApiUrl()) {
+        throw new Error("Canal de atendimento indisponível no momento. Fale conosco pelo WhatsApp.");
+      }
 
       const sanitizedForm = sanitizeContactForm(form);
       const response = await fetch(`${API_URL}/api/leads`, {

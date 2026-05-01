@@ -83,6 +83,7 @@ Use estas rotas ao montar e testar o fluxo:
 | --- | --- | --- |
 | Frontend -> backend local | `POST` | `http://localhost:3001/api/leads` |
 | Health do backend local | `GET` | `http://localhost:3001/health` |
+| Health do banco local SQLite | `GET` | `http://localhost:3001/api/local-leads/health` |
 | Health Cloudfy via backend | `GET` | `http://localhost:3001/api/cloudfy/health` |
 | n8n lead capture teste | `POST` | `https://groundedlungfish-n8n.cloudfy.live/webhook-test/sandbox/backe/lead-capture` |
 | n8n lead capture produção | `POST` | `https://groundedlungfish-n8n.cloudfy.live/webhook/sandbox/backe/lead-capture` |

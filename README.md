@@ -27,9 +27,31 @@ node backend/server.js
 Endpoint disponivel:
 
 - `POST /api/leads`
+- `GET /api/local-leads/health`
 - `GET /api/cloudfy/health`
 
 O backend valida, normaliza e encaminha leads para o webhook sandbox do Cloudfy/n8n. Para gravar um log local em `backend/data/leads.jsonl`, que esta ignorado pelo Git, defina `LOCAL_LEAD_LOG_ENABLED=true`.
+
+Por padrao, todo lead valido tambem e salvo antes no banco local SQLite. No Windows, o arquivo fica em `%LOCALAPPDATA%\BACKE.co\lead-db\leads.sqlite`, fora do Git e fora da pasta sincronizada do projeto.
+
+Variaveis locais do banco:
+
+```sh
+LOCAL_LEAD_DB_ENABLED=true
+LOCAL_LEAD_DB_PATH=
+```
+
+Status possiveis no SQLite local:
+
+- `received`: lead salvo localmente antes da automacao.
+- `n8n_forwarded`: lead salvo localmente e enviado ao n8n.
+- `n8n_failed`: lead salvo localmente, mas o envio ao n8n falhou e precisa de reprocessamento.
+
+Para listar os ultimos leads locais:
+
+```sh
+npm run leads:local
+```
 
 ## Cloudfy/n8n
 

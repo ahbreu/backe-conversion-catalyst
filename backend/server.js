@@ -20,12 +20,18 @@ const {
   submitLeadToN8n,
   validateLeadPayload
 } = require('./cloudfy');
+const {
+  saveLocalLead,
+  updateLocalLeadN8nFailure,
+  updateLocalLeadN8nSuccess
+} = require('./localLeadDb');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DATA_DIR = path.join(__dirname, 'data');
 const LEADS_FILE = path.join(DATA_DIR, 'leads.jsonl');
 const isTruthy = (value) => ['1', 'true', 'yes'].includes(String(value || '').toLowerCase());
+const LOCAL_LEAD_DB_ENABLED = process.env.LOCAL_LEAD_DB_ENABLED !== 'false';
 const LOCAL_LEAD_LOG_ENABLED = isTruthy(process.env.LOCAL_LEAD_LOG_ENABLED);
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
 const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 20);
@@ -196,6 +202,13 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.get('/api/local-leads/health', (req, res) => {
+  res.json({
+    ok: true,
+    enabled: LOCAL_LEAD_DB_ENABLED
+  });
+});
+
 app.get('/api/cloudfy/health', async (req, res) => {
   try {
     const health = await checkCloudfyHealth();
@@ -273,21 +286,77 @@ app.post('/api/leads', rateLimitLeads, async (req, res) => {
 
     leadPayload.metadata.idempotencyKey = fingerprint;
 
-    const n8nResponse = await submitLeadToN8n(leadPayload);
-    leadFingerprintStore.set(fingerprint, {
-      expiresAt: now + LEAD_IDEMPOTENCY_WINDOW_MS
-    });
-    await persistLead(leadPayload, n8nResponse);
-    log('info', 'lead_forwarded_to_n8n', {
-      requestId: req.id,
-      formId: leadPayload.formId,
-      n8nLeadReceived: n8nResponse?.leadReceived === true
-    });
+    let localLead = null;
 
-    return res.status(201).json({
-      ok: true,
-      message: 'Lead sent successfully'
-    });
+    if (LOCAL_LEAD_DB_ENABLED) {
+      try {
+        localLead = saveLocalLead(leadPayload, fingerprint);
+        log('info', 'lead_saved_to_local_db', {
+          requestId: req.id,
+          localLeadId: localLead.id,
+          duplicate: localLead.duplicate
+        });
+      } catch (error) {
+        log('error', 'lead_local_db_save_failed', {
+          requestId: req.id,
+          message: error.message
+        });
+
+        return res.status(500).json({
+          ok: false,
+          message: 'Não conseguimos salvar sua solicitação agora. Tente novamente ou fale conosco pelo WhatsApp.'
+        });
+      }
+    }
+
+    try {
+      const n8nResponse = await submitLeadToN8n(leadPayload);
+      leadFingerprintStore.set(fingerprint, {
+        expiresAt: now + LEAD_IDEMPOTENCY_WINDOW_MS
+      });
+
+      if (localLead) {
+        updateLocalLeadN8nSuccess(localLead.id, n8nResponse);
+      }
+
+      await persistLead(leadPayload, n8nResponse);
+      log('info', 'lead_forwarded_to_n8n', {
+        requestId: req.id,
+        formId: leadPayload.formId,
+        localLeadId: localLead?.id,
+        n8nLeadReceived: n8nResponse?.leadReceived === true
+      });
+
+      return res.status(201).json({
+        ok: true,
+        message: 'Lead sent successfully',
+        localLeadId: localLead?.id || null,
+        automationStatus: 'n8n_forwarded'
+      });
+    } catch (error) {
+      if (localLead) {
+        updateLocalLeadN8nFailure(localLead.id, error);
+        leadFingerprintStore.set(fingerprint, {
+          expiresAt: now + LEAD_IDEMPOTENCY_WINDOW_MS
+        });
+
+        log('error', 'lead_saved_locally_n8n_failed', {
+          requestId: req.id,
+          localLeadId: localLead.id,
+          message: error.message,
+          status: error.status
+        });
+
+        return res.status(202).json({
+          ok: true,
+          message: 'Lead saved locally. Automation is pending.',
+          localLeadId: localLead.id,
+          automationStatus: 'n8n_failed'
+        });
+      }
+
+      throw error;
+    }
   } catch (error) {
     log('error', 'lead_forward_failed', {
       requestId: req.id,

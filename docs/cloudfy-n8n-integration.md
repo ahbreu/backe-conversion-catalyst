@@ -38,6 +38,8 @@ POSTGRES_USER=
 POSTGRES_PASSWORD=
 PORT=3001
 FRONTEND_URL=http://localhost:8080
+LOCAL_LEAD_DB_ENABLED=true
+LOCAL_LEAD_DB_PATH=
 VITE_API_URL=http://localhost:3001
 VITE_MAINTENANCE_MODE=true
 ```
@@ -104,9 +106,11 @@ Every website submission is normalized before it is sent to n8n:
 3. Validates required fields: name and phone. Email is optional but validated when present.
 4. Applies basic rate limiting by IP.
 5. Skips duplicate submissions inside `LEAD_IDEMPOTENCY_WINDOW_MS` and adds `metadata.idempotencyKey`.
-6. Sends the payload to `N8N_LEAD_CAPTURE_WEBHOOK_TEST_URL` while `APP_ENV=sandbox`.
-7. Retries only retryable n8n failures, such as timeout, `429`, and `5xx`.
-8. Returns only a safe website response:
+6. Saves the normalized lead locally in SQLite before calling n8n when `LOCAL_LEAD_DB_ENABLED=true`.
+7. Sends the payload to `N8N_LEAD_CAPTURE_WEBHOOK_TEST_URL` while `APP_ENV=sandbox`.
+8. Retries only retryable n8n failures, such as timeout, `429`, and `5xx`.
+9. Updates the local SQLite status to `n8n_forwarded` or `n8n_failed`.
+10. Returns only a safe website response:
 
 ```json
 {
@@ -133,6 +137,7 @@ The Express backend includes production-oriented defaults without adding third-p
 - Request IDs via `X-Request-Id`.
 - Structured JSON logs for Cloudfy health, validation failures, rate limits, duplicate skips, and n8n forwarding.
 - Body size limit of `64kb`.
+- Local SQLite persistence before n8n forwarding, so leads are not lost if automation is unavailable. On Windows, the default database path is `%LOCALAPPDATA%\BACKE.co\lead-db\leads.sqlite`.
 - Rate limit for `POST /api/leads` with `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX`.
 - In-memory duplicate prevention with `LEAD_IDEMPOTENCY_WINDOW_MS`.
 - n8n timeout and retry controls through `N8N_REQUEST_TIMEOUT_MS`, `N8N_RETRY_ATTEMPTS`, and `N8N_RETRY_BASE_DELAY_MS`.
@@ -267,4 +272,5 @@ During development, the workflow creates this table automatically. Later, move t
 - Create the n8n credential `Postgres Cloudfy` using PostgreSQL data from the Cloudfy panel.
 - Move to the `/webhook/sandbox/backe/lead-capture` URL when ready and set `APP_ENV=production`.
 - Deploy the Express backend and set the frontend `VITE_API_URL` to that backend URL.
+- Configure the GitHub repository variable `VITE_API_URL` before publishing the GitHub Pages frontend. If it is missing, the production frontend will not fall back to `localhost`.
 - Configure Evolution API URL, instance, API key, seller phone, database credentials, and Chatwoot credentials inside n8n.

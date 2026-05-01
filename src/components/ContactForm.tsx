@@ -7,6 +7,7 @@ import {
   sanitizeContactForm,
   validateContactForm,
 } from "@/lib/leadCapture";
+import { API_URL, assertApiUrl } from "@/config/api";
 
 const faturamentoOptions = [
   "Até R$ 10.000",
@@ -23,7 +24,6 @@ const interestOptions = [
   "Captação",
 ] as const;
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const SUCCESS_MESSAGE =
   "Recebemos sua solicitação. Um especialista da BACKE.co vai entrar em contato em breve.";
 const ERROR_MESSAGE =
@@ -102,6 +102,10 @@ const ContactForm = () => {
       setIsLoading(true);
       setFieldErrors({});
       setSubmitStatus(null);
+
+      if (!assertApiUrl()) {
+        throw new Error("Canal de atendimento indisponível no momento. Fale conosco pelo WhatsApp.");
+      }
 
       const response = await fetch(`${API_URL}/api/leads`, {
         method: "POST",

@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "serve:dist": "node scripts/serve-dist.cjs",
+    "leads:local": "node scripts/list-local-leads.cjs",
     "test:backend": "node scripts/test-backend-helpers.cjs",
     "test:cloudfy": "node --env-file=.env.local scripts/test-cloudfy-healthcheck.js",
     "test:lead": "node --env-file=.env.local scripts/test-lead-capture.js"
