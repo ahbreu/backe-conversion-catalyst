@@ -12,6 +12,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "serve:dist": "node scripts/serve-dist.cjs",
+    "worker:dev": "npx wrangler dev --config worker/wrangler.toml",
+    "worker:deploy": "npx wrangler deploy --config worker/wrangler.toml",
     "leads:local": "node scripts/list-local-leads.cjs",
     "test:backend": "node scripts/test-backend-helpers.cjs",
     "test:cloudfy": "node --env-file=.env.local scripts/test-cloudfy-healthcheck.js",

@@ -1,0 +1,4 @@
+N8N_LEAD_CAPTURE_WEBHOOK_URL=https://SEU-N8N/webhook/sandbox/backe/lead-capture
+N8N_HEALTHCHECK_URL=https://SEU-N8N/webhook/sandbox/backe/healthcheck
+DEFAULT_SELLER_NAME=
+DEFAULT_SELLER_PHONE=

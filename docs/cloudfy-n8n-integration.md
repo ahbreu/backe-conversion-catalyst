@@ -271,6 +271,6 @@ During development, the workflow creates this table automatically. Later, move t
 - Import and activate [`workflows/backe-lead-whatsapp.json`](../workflows/backe-lead-whatsapp.json) in n8n.
 - Create the n8n credential `Postgres Cloudfy` using PostgreSQL data from the Cloudfy panel.
 - Move to the `/webhook/sandbox/backe/lead-capture` URL when ready and set `APP_ENV=production`.
-- Deploy the Express backend and set the frontend `VITE_API_URL` to that backend URL.
+- Deploy the Cloudflare Worker in [`worker/`](../worker) following [`production-cloudflare-worker.md`](./production-cloudflare-worker.md), then set the frontend `VITE_API_URL` to that Worker URL. The Express backend remains useful for local development.
 - Configure the GitHub repository variable `VITE_API_URL` before publishing the GitHub Pages frontend. If it is missing, the production frontend will not fall back to `localhost`.
 - Configure Evolution API URL, instance, API key, seller phone, database credentials, and Chatwoot credentials inside n8n.

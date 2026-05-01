@@ -53,6 +53,37 @@ Para listar os ultimos leads locais:
 npm run leads:local
 ```
 
+## Cloudflare Worker para producao
+
+Para evitar um backend pago em producao, o repositorio tambem inclui uma Worker em [worker/](./worker). Ela expoe as mesmas rotas principais do backend:
+
+- `POST /api/leads`
+- `GET /health`
+- `GET /api/cloudfy/health`
+
+A Worker valida o lead, bloqueia origens fora do `FRONTEND_URL` e encaminha para o webhook privado do Cloudfy/n8n configurado como secret da Cloudflare.
+
+Configure os secrets da Worker:
+
+```sh
+npx wrangler secret put N8N_LEAD_CAPTURE_WEBHOOK_URL --config worker/wrangler.toml
+npx wrangler secret put N8N_HEALTHCHECK_URL --config worker/wrangler.toml
+```
+
+Deploy manual:
+
+```sh
+npm run worker:deploy
+```
+
+Depois que a Cloudflare gerar a URL publica da Worker, configure no GitHub:
+
+```txt
+VITE_API_URL=https://backe-lead-proxy.SEUSUBDOMINIO.workers.dev
+```
+
+O passo a passo completo fica em [worker/README.md](./worker/README.md) e no runbook de producao [docs/production-cloudflare-worker.md](./docs/production-cloudflare-worker.md).
+
 ## Cloudfy/n8n
 
 Documentacao completa: [docs/cloudfy-n8n-integration.md](./docs/cloudfy-n8n-integration.md).
@@ -84,6 +115,8 @@ O repositorio ja esta preparado para deploy automatico pelo workflow [deploy-pag
 2. No GitHub, abra `Settings > Pages`.
 3. Em `Source`, selecione `GitHub Actions`.
 4. Aguarde o workflow `Deploy GitHub Pages` terminar.
+
+Para o formulario funcionar em producao, configure tambem a variavel de repositorio `VITE_API_URL` apontando para a Worker publicada.
 
 ### Base path
 

@@ -1,0 +1,14 @@
+name = "backe-lead-proxy"
+main = "src/index.js"
+compatibility_date = "2026-05-01"
+
+[vars]
+APP_ENV = "production"
+COMPANY_NAME = "BACKE.co"
+FRONTEND_URL = "https://backe.com.br,https://www.backe.com.br"
+N8N_REQUEST_TIMEOUT_MS = "10000"
+N8N_RETRY_ATTEMPTS = "2"
+N8N_RETRY_BASE_DELAY_MS = "500"
+RATE_LIMIT_WINDOW_MS = "60000"
+RATE_LIMIT_MAX = "20"
+LEAD_IDEMPOTENCY_WINDOW_MS = "300000"
