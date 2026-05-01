@@ -10,12 +10,14 @@ Landing page institucional da BACKE Creative, feita com Vite, React, TypeScript 
 
 ## Backend
 
-O backend roda localmente na porta `3001`.
+O backend Express roda localmente na porta `3001` e recebe leads em `/api/leads`.
 
-1. Copie `backend/.env.example` para `backend/.env`.
+1. Copie `.env.example` para `.env.local` ou `backend/.env.example` para `backend/.env`.
 2. Ajuste as variaveis se necessario:
+   - `APP_ENV=sandbox`
    - `PORT=3001`
    - `FRONTEND_URL=http://localhost:8080`
+   - `N8N_LEAD_CAPTURE_WEBHOOK_TEST_URL=https://groundedlungfish-n8n.cloudfy.live/webhook-test/sandbox/backe/lead-capture`
 3. Inicie o servidor:
 
 ```sh
@@ -25,8 +27,25 @@ node backend/server.js
 Endpoint disponivel:
 
 - `POST /api/leads`
+- `GET /api/cloudfy/health`
 
-Os leads recebidos sao persistidos localmente em `backend/data/leads.jsonl`.
+O backend valida, normaliza e encaminha leads para o webhook sandbox do Cloudfy/n8n. Para gravar um log local em `backend/data/leads.jsonl`, que esta ignorado pelo Git, defina `LOCAL_LEAD_LOG_ENABLED=true`.
+
+## Cloudfy/n8n
+
+Documentacao completa: [docs/cloudfy-n8n-integration.md](./docs/cloudfy-n8n-integration.md).
+
+Workflow n8n versionado: [workflows/backe-lead-whatsapp.json](./workflows/backe-lead-whatsapp.json).
+
+Guia de configuracao do workflow, PostgreSQL Cloudfy e Evolution API: [docs/n8n-backe-lead-whatsapp.md](./docs/n8n-backe-lead-whatsapp.md).
+
+Scripts de teste:
+
+```sh
+npm run test:backend
+npm run test:cloudfy
+npm run test:lead
+```
 
 ## Estrutura principal
 

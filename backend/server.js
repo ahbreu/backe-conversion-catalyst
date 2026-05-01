@@ -4,92 +4,182 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const fs = require('fs/promises');
+const crypto = require('crypto');
 
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+[
+  path.resolve(__dirname, '..', '.env'),
+  path.resolve(__dirname, '..', '.env.local'),
+  path.resolve(__dirname, '.env'),
+  path.resolve(__dirname, '.env.local')
+].forEach((envPath) => dotenv.config({ path: envPath, override: true }));
+
+const {
+  checkCloudfyHealth,
+  hasHoneypotValue,
+  normalizeLeadPayload,
+  submitLeadToN8n,
+  validateLeadPayload
+} = require('./cloudfy');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DATA_DIR = path.join(__dirname, 'data');
 const LEADS_FILE = path.join(DATA_DIR, 'leads.jsonl');
-const FATURAMENTO_OPTIONS = [
-  'Até R$ 10.000',
-  'R$ 10.000 - R$ 50.000',
-  'R$ 50.000 - R$ 100.000',
-  'R$ 100.000 - R$ 500.000',
-  'Acima de R$ 500.000'
+const isTruthy = (value) => ['1', 'true', 'yes'].includes(String(value || '').toLowerCase());
+const LOCAL_LEAD_LOG_ENABLED = isTruthy(process.env.LOCAL_LEAD_LOG_ENABLED);
+const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
+const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 20);
+const LEAD_IDEMPOTENCY_WINDOW_MS = Number(process.env.LEAD_IDEMPOTENCY_WINDOW_MS || 300000);
+const TRUST_PROXY_ENABLED = isTruthy(process.env.TRUST_PROXY);
+const DEFAULT_FRONTEND_ORIGINS = [
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://[::1]:8080',
+  'http://[::1]:5173'
 ];
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const normalizeText = (value) => {
-  const text = String(value || '').trim();
-  const fixed = text.includes('Ã') ? Buffer.from(text, 'latin1').toString('utf8') : text;
-  return fixed.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-};
-const NORMALIZED_FATURAMENTO_OPTIONS = new Set(FATURAMENTO_OPTIONS.map(normalizeText));
+const normalizeOrigin = (origin) => String(origin || '').trim().replace(/\/+$/, '');
+const isProductionEnvironment = () =>
+  ['production', 'prod'].includes(String(process.env.APP_ENV || 'sandbox').toLowerCase());
+const allowedOrigins = new Set(
+  [...DEFAULT_FRONTEND_ORIGINS, ...(process.env.FRONTEND_URL || '').split(',')]
+    .map(normalizeOrigin)
+    .filter(Boolean)
+);
+const isLocalDevOrigin = (origin) => {
+  if (isProductionEnvironment()) {
+    return false;
+  }
 
+  try {
+    const { hostname, protocol } = new URL(origin);
+    return protocol === 'http:' && ['localhost', '127.0.0.1', '::1'].includes(hostname);
+  } catch {
+    return false;
+  }
+};
+const rateLimitStore = new Map();
+const leadFingerprintStore = new Map();
+
+const log = (level, event, details = {}) => {
+  const payload = {
+    timestamp: new Date().toISOString(),
+    level,
+    event,
+    ...details
+  };
+
+  const logger = level === 'error' ? console.error : console.log;
+  logger(JSON.stringify(payload));
+};
+
+const createLeadFingerprint = (leadPayload) =>
+  crypto
+    .createHash('sha256')
+    .update(
+      JSON.stringify({
+        company: leadPayload.company,
+        environment: leadPayload.environment,
+        formId: leadPayload.formId,
+        pageUrl: leadPayload.pageUrl,
+        name: leadPayload.lead.name.toLowerCase(),
+        email: leadPayload.lead.email,
+        phone: leadPayload.lead.phone,
+        serviceInterest: leadPayload.lead.serviceInterest,
+        companyName: leadPayload.lead.companyName
+      })
+    )
+    .digest('hex');
+
+const pruneExpiringMap = (store, now = Date.now()) => {
+  for (const [key, value] of store.entries()) {
+    const expiresAt = value.expiresAt ?? value.resetAt;
+
+    if (expiresAt <= now) {
+      store.delete(key);
+    }
+  }
+};
+
+app.set('trust proxy', TRUST_PROXY_ENABLED);
 app.use(helmet());
 
-app.use(cors({
-  origin: process.env.FRONTEND_URL,
-  methods: ['GET', 'POST'],
-  credentials: true
-}));
-
-app.use(express.json());
-
-app.get('/health', (req, res) => {
-  res.json({
-    ok: true,
-    message: 'Backend Backe online'
-  });
+app.use((req, res, next) => {
+  req.id = crypto.randomUUID();
+  res.setHeader('X-Request-Id', req.id);
+  next();
 });
 
-const sanitizeLead = (payload = {}) => ({
-  nome: String(payload.nome || '').trim(),
-  whatsapp: String(payload.whatsapp || '').trim(),
-  email: String(payload.email || '').trim(),
-  empresa: String(payload.empresa || '').trim(),
-  nicho: String(payload.nicho || '').trim(),
-  faturamento: String(payload.faturamento || '').trim()
-});
+app.use(
+  cors({
+    origin(origin, callback) {
+      const normalizedOrigin = normalizeOrigin(origin);
 
-const validateLead = (lead) => {
-  const requiredFields = ['nome', 'whatsapp', 'email', 'empresa', 'nicho', 'faturamento'];
-  const missingField = requiredFields.find((field) => !lead[field]);
+      if (!origin || allowedOrigins.has(normalizedOrigin) || isLocalDevOrigin(normalizedOrigin)) {
+        return callback(null, true);
+      }
 
-  if (missingField) {
-    return { ok: false, message: 'Preencha todos os campos obrigatórios.' };
+      return callback(new Error('Origin not allowed by CORS.'));
+    },
+    methods: ['GET', 'POST', 'OPTIONS'],
+    credentials: false,
+    optionsSuccessStatus: 204
+  })
+);
+
+app.use(express.json({ limit: '64kb' }));
+
+const getClientIp = (req) => req.ip || req.socket?.remoteAddress || null;
+
+const rateLimitLeads = (req, res, next) => {
+  const now = Date.now();
+  const key = getClientIp(req) || 'unknown';
+  const current = rateLimitStore.get(key);
+
+  if (!current || current.resetAt <= now) {
+    rateLimitStore.set(key, {
+      count: 1,
+      resetAt: now + RATE_LIMIT_WINDOW_MS
+    });
+    pruneExpiringMap(rateLimitStore, now);
+    return next();
   }
 
-  if (!EMAIL_PATTERN.test(lead.email)) {
-    return { ok: false, message: 'Email inválido.' };
+  current.count += 1;
+
+  if (current.count > RATE_LIMIT_MAX) {
+    const retryAfterSeconds = Math.ceil((current.resetAt - now) / 1000);
+    res.setHeader('Retry-After', String(retryAfterSeconds));
+    log('warn', 'lead_rate_limited', {
+      requestId: req.id,
+      ip: key,
+      retryAfterSeconds
+    });
+
+    return res.status(429).json({
+      ok: false,
+      message: 'Recebemos muitas tentativas em pouco tempo. Aguarde um instante e tente novamente.'
+    });
   }
 
-  const phoneDigits = lead.whatsapp.replace(/\D/g, '');
-  if (phoneDigits.length < 10 || phoneDigits.length > 15) {
-    return { ok: false, message: 'WhatsApp inválido.' };
-  }
-
-  if (lead.nome.length > 100 || lead.empresa.length > 100 || lead.nicho.length > 100) {
-    return { ok: false, message: 'Campos de texto excedem o limite permitido.' };
-  }
-
-  if (lead.email.length > 255 || lead.whatsapp.length > 20) {
-    return { ok: false, message: 'Campos excedem o limite permitido.' };
-  }
-
-  if (!NORMALIZED_FATURAMENTO_OPTIONS.has(normalizeText(lead.faturamento))) {
-    return { ok: false, message: 'Faixa de faturamento inválida.' };
-  }
-
-  return { ok: true };
+  return next();
 };
 
-const persistLead = async (lead) => {
+const persistLead = async (leadPayload, n8nResponse) => {
+  if (!LOCAL_LEAD_LOG_ENABLED) {
+    return null;
+  }
+
   await fs.mkdir(DATA_DIR, { recursive: true });
 
   const leadRecord = {
-    ...lead,
-    recebidoEm: new Date().toISOString()
+    ...leadPayload,
+    n8n: {
+      ok: n8nResponse?.ok === true,
+      leadReceived: n8nResponse?.leadReceived === true
+    },
+    receivedAt: new Date().toISOString()
   };
 
   await fs.appendFile(LEADS_FILE, `${JSON.stringify(leadRecord)}\n`, 'utf8');
@@ -97,30 +187,117 @@ const persistLead = async (lead) => {
   return leadRecord;
 };
 
-app.post('/api/leads', async (req, res) => {
+app.get('/health', (req, res) => {
+  res.json({
+    ok: true,
+    company: process.env.COMPANY_NAME || 'BACKE.co',
+    environment: process.env.APP_ENV || 'sandbox',
+    message: 'Backend Backe online'
+  });
+});
+
+app.get('/api/cloudfy/health', async (req, res) => {
   try {
-    const lead = sanitizeLead(req.body);
-    const validation = validateLead(lead);
+    const health = await checkCloudfyHealth();
+    log('info', 'cloudfy_health_ok', {
+      requestId: req.id
+    });
+
+    return res.json({
+      ok: true,
+      cloudfy: health
+    });
+  } catch (error) {
+    log('error', 'cloudfy_health_failed', {
+      requestId: req.id,
+      message: error.message,
+      status: error.status
+    });
+
+    return res.status(502).json({
+      ok: false,
+      message: 'Não foi possível verificar o Cloudfy/n8n agora.'
+    });
+  }
+});
+
+app.post('/api/leads', rateLimitLeads, async (req, res) => {
+  try {
+    if (hasHoneypotValue(req.body)) {
+      log('warn', 'lead_honeypot_rejected', {
+        requestId: req.id,
+        ip: getClientIp(req)
+      });
+
+      return res.status(400).json({
+        ok: false,
+        message: 'Não conseguimos enviar sua solicitação agora. Tente novamente ou fale conosco pelo WhatsApp.'
+      });
+    }
+
+    const leadPayload = normalizeLeadPayload(req.body, {
+      formId: 'website-contact-form',
+      userAgent: req.get('user-agent') || null,
+      ip: getClientIp(req)
+    });
+    const validation = validateLeadPayload(leadPayload);
 
     if (!validation.ok) {
+      log('warn', 'lead_validation_failed', {
+        requestId: req.id,
+        reason: validation.message
+      });
+
       return res.status(400).json({
         ok: false,
         message: validation.message
       });
     }
 
-    const savedLead = await persistLead(lead);
+    const fingerprint = createLeadFingerprint(leadPayload);
+    const now = Date.now();
+    pruneExpiringMap(leadFingerprintStore, now);
+
+    if (leadFingerprintStore.has(fingerprint)) {
+      log('info', 'lead_duplicate_skipped', {
+        requestId: req.id,
+        formId: leadPayload.formId
+      });
+
+      return res.status(200).json({
+        ok: true,
+        message: 'Lead sent successfully',
+        duplicate: true
+      });
+    }
+
+    leadPayload.metadata.idempotencyKey = fingerprint;
+
+    const n8nResponse = await submitLeadToN8n(leadPayload);
+    leadFingerprintStore.set(fingerprint, {
+      expiresAt: now + LEAD_IDEMPOTENCY_WINDOW_MS
+    });
+    await persistLead(leadPayload, n8nResponse);
+    log('info', 'lead_forwarded_to_n8n', {
+      requestId: req.id,
+      formId: leadPayload.formId,
+      n8nLeadReceived: n8nResponse?.leadReceived === true
+    });
 
     return res.status(201).json({
       ok: true,
-      message: 'Lead recebido com sucesso',
-      lead: savedLead
+      message: 'Lead sent successfully'
     });
   } catch (error) {
-    console.error('Erro ao processar lead:', error);
-    return res.status(500).json({
+    log('error', 'lead_forward_failed', {
+      requestId: req.id,
+      message: error.message,
+      status: error.status
+    });
+
+    return res.status(502).json({
       ok: false,
-      message: 'Erro interno do servidor'
+      message: 'Não conseguimos enviar sua solicitação agora. Tente novamente ou fale conosco pelo WhatsApp.'
     });
   }
 });
@@ -129,7 +306,14 @@ app.use((error, req, res, next) => {
   if (error && error.type === 'entity.parse.failed') {
     return res.status(400).json({
       ok: false,
-      message: 'JSON invalido no corpo da requisicao.'
+      message: 'JSON inválido no corpo da requisição.'
+    });
+  }
+
+  if (error && error.message === 'Origin not allowed by CORS.') {
+    return res.status(403).json({
+      ok: false,
+      message: 'Origem não autorizada.'
     });
   }
 

@@ -1,4 +1,4 @@
-const maintenanceModeValue = String(import.meta.env.VITE_MAINTENANCE_MODE ?? "false").toLowerCase();
+const maintenanceModeValue = String(import.meta.env.VITE_MAINTENANCE_MODE ?? "true").toLowerCase();
 
 export const MAINTENANCE_MODE = ["1", "true", "yes"].includes(maintenanceModeValue);
 

@@ -4,11 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/dev-local.cjs",
+    "dev:frontend": "vite",
+    "dev:backend": "node backend/server.js",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "serve:dist": "node scripts/serve-dist.cjs",
+    "test:backend": "node scripts/test-backend-helpers.cjs",
+    "test:cloudfy": "node --env-file=.env.local scripts/test-cloudfy-healthcheck.js",
+    "test:lead": "node --env-file=.env.local scripts/test-lead-capture.js"
   },
   "dependencies": {
     "react": "^18.3.1",

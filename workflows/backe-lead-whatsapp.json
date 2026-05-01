@@ -1,0 +1,497 @@
+{
+  "name": "BACKE.co - Lead Site + PostgreSQL + WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sandbox/backe/lead-capture",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000001",
+      "name": "Webhook - Receber Lead do Site",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -920,
+        0
+      ],
+      "webhookId": "backe-lead-capture"
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $json.body && typeof $json.body === 'object' ? $json.body : $json;\nconst lead = payload.lead || {};\nconst seller = payload.seller || payload.vendedor || {};\nconst metadata = payload.metadata || {};\n\nconst requiredString = (value) => String(value ?? '').trim();\nconst nullableString = (value) => {\n  const text = requiredString(value);\n  return text || null;\n};\nconst normalizePhone = (value) => {\n  const digits = String(value ?? '').replace(/\\D/g, '');\n\n  if (!digits) {\n    return '';\n  }\n\n  if ((digits.length === 10 || digits.length === 11) && !digits.startsWith('55')) {\n    return `55${digits}`;\n  }\n\n  return digits;\n};\n\nconst nome = requiredString(lead.name ?? payload.nome ?? payload.name);\nconst telefone = normalizePhone(lead.phone ?? payload.whatsapp ?? payload.phone ?? payload.telefone);\nconst email = nullableString(lead.email ?? payload.email)?.toLowerCase() || null;\nconst servico = nullableString(lead.serviceInterest ?? payload.serviceInterest ?? payload.interesse ?? payload.servico) || 'outro';\nconst mensagem = nullableString(lead.message ?? payload.message ?? payload.mensagem);\nconst companyName = nullableString(lead.companyName ?? payload.empresa ?? payload.companyName);\nconst vendedor = {\n  nome: nullableString(seller.name ?? seller.nome),\n  telefone: normalizePhone(seller.phone ?? seller.telefone) || null\n};\nconst origem = {\n  company: requiredString(payload.company) || 'BACKE.co',\n  environment: requiredString(payload.environment) || 'sandbox',\n  source: requiredString(payload.source) || 'website',\n  formId: nullableString(payload.formId),\n  pageUrl: nullableString(payload.pageUrl),\n  pageTitle: nullableString(payload.pageTitle),\n  utm: payload.utm && typeof payload.utm === 'object' ? payload.utm : {}\n};\nconst consentimento = payload.consentimento && typeof payload.consentimento === 'object'\n  ? payload.consentimento\n  : {\n      marketing: true,\n      source: 'website-contact-form',\n      capturedAt: metadata.submittedAt || new Date().toISOString()\n    };\nconst normalizedMetadata = {\n  ...metadata,\n  companyName,\n  vendedor,\n  idempotencyKey: metadata.idempotencyKey || payload.idempotencyKey || null,\n  normalizedAt: new Date().toISOString()\n};\nconst errors = [];\n\nif (!nome) {\n  errors.push('Informe seu nome.');\n}\n\nif (!telefone) {\n  errors.push('Informe seu WhatsApp.');\n}\n\nif (telefone && (telefone.length < 10 || telefone.length > 15)) {\n  errors.push('Informe um WhatsApp válido.');\n}\n\nif (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {\n  errors.push('Informe um email válido.');\n}\n\nreturn [\n  {\n    json: {\n      valid: errors.length === 0,\n      errors,\n      nome,\n      telefone,\n      email,\n      servico,\n      mensagem,\n      origem,\n      consentimento,\n      metadata: normalizedMetadata,\n      raw_payload: payload,\n      vendedor\n    }\n  }\n];"
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000002",
+      "name": "Code - Validar e Normalizar Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.valid }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000003",
+      "name": "IF - Lead Valido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  ok: false,\n  message: $json.errors?.[0] || 'Lead inválido.',\n  errors: $json.errors || []\n} }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000004",
+      "name": "Respond - Erro Validacao",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -180,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "CREATE TABLE IF NOT EXISTS public.leads_site (\n  id BIGSERIAL PRIMARY KEY,\n  nome TEXT NOT NULL,\n  telefone TEXT NOT NULL,\n  email TEXT,\n  servico TEXT DEFAULT 'outro',\n  mensagem TEXT,\n  origem JSONB DEFAULT '{}'::jsonb,\n  consentimento JSONB DEFAULT '{}'::jsonb,\n  metadata JSONB DEFAULT '{}'::jsonb,\n  raw_payload JSONB DEFAULT '{}'::jsonb,\n  status TEXT DEFAULT 'novo',\n  whatsapp_cliente_enviado BOOLEAN DEFAULT false,\n  whatsapp_vendedor_enviado BOOLEAN DEFAULT false,\n  erro_envio TEXT,\n  created_at TIMESTAMPTZ DEFAULT NOW(),\n  updated_at TIMESTAMPTZ DEFAULT NOW()\n);\n\nCREATE INDEX IF NOT EXISTS idx_leads_site_telefone ON public.leads_site (telefone);\nCREATE INDEX IF NOT EXISTS idx_leads_site_email ON public.leads_site (email);\nCREATE INDEX IF NOT EXISTS idx_leads_site_created_at ON public.leads_site (created_at);\nCREATE INDEX IF NOT EXISTS idx_leads_site_status ON public.leads_site (status);",
+        "options": {
+          "queryBatching": "single",
+          "largeNumbersOutput": "text"
+        }
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000005",
+      "name": "Postgres - Criar Tabela Se Nao Existir",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -180,
+        -80
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CLOUDFY",
+          "name": "Postgres Cloudfy"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.leads_site (\n  nome,\n  telefone,\n  email,\n  servico,\n  mensagem,\n  origem,\n  consentimento,\n  metadata,\n  raw_payload,\n  status\n)\nVALUES (\n  $1,\n  $2,\n  $3,\n  $4,\n  $5,\n  $6::jsonb,\n  $7::jsonb,\n  $8::jsonb,\n  $9::jsonb,\n  'recebido'\n)\nRETURNING\n  id::text AS lead_id,\n  created_at AS lead_created_at,\n  nome,\n  telefone,\n  email,\n  servico,\n  mensagem,\n  origem,\n  consentimento,\n  metadata,\n  raw_payload,\n  status;",
+        "options": {
+          "queryBatching": "independently",
+          "queryReplacement": "={{ [\n  $('Code - Validar e Normalizar Lead').first().json.nome,\n  $('Code - Validar e Normalizar Lead').first().json.telefone,\n  $('Code - Validar e Normalizar Lead').first().json.email,\n  $('Code - Validar e Normalizar Lead').first().json.servico,\n  $('Code - Validar e Normalizar Lead').first().json.mensagem,\n  JSON.stringify($('Code - Validar e Normalizar Lead').first().json.origem || {}),\n  JSON.stringify($('Code - Validar e Normalizar Lead').first().json.consentimento || {}),\n  JSON.stringify($('Code - Validar e Normalizar Lead').first().json.metadata || {}),\n  JSON.stringify($('Code - Validar e Normalizar Lead').first().json.raw_payload || {})\n] }}",
+          "largeNumbersOutput": "text",
+          "replaceEmptyStrings": true
+        }
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000006",
+      "name": "Postgres - Salvar Lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        80,
+        -80
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CLOUDFY",
+          "name": "Postgres Cloudfy"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ String($env.EVOLUTION_DRY_RUN || '').toLowerCase() === 'true' }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000014",
+      "name": "IF - Simular WhatsApp?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        340,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $('Postgres - Salvar Lead').first().json;\n\nreturn [\n  {\n    json: {\n      ok: true,\n      dryRun: true,\n      lead_id: lead.lead_id,\n      whatsapp_cliente_enviado: true,\n      whatsapp_vendedor_enviado: true,\n      cliente: {\n        number: lead.telefone,\n        text: `Olá, ${lead.nome}! Recebemos seu contato na BACKE.co. Um especialista vai falar com você em breve para seguir com seu diagnóstico.`\n      },\n      vendedor: {\n        number: lead.metadata?.vendedor?.telefone || $env.DEFAULT_SELLER_PHONE || 'SIMULATED_SELLER_PHONE',\n        text: `Novo lead BACKE.co\\nID: ${lead.lead_id}\\nNome: ${lead.nome}\\nWhatsApp: ${lead.telefone}\\nEmail: ${lead.email || 'não informado'}\\nEmpresa: ${lead.metadata?.companyName || 'não informado'}\\nInteresse: ${lead.servico || 'não informado'}\\nOrigem: ${lead.origem?.source || 'website'} - ${lead.origem?.pageUrl || 'sem URL'}`\n      }\n    }\n  }\n];"
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000015",
+      "name": "Code - Simular Envios WhatsApp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        -280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.EVOLUTION_API_URL || 'https://SEU-EVOLUTION-API') + '/message/sendText/' + ($env.EVOLUTION_INSTANCE || 'SUA_INSTANCIA') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_API_KEY || 'CONFIGURE_EVOLUTION_API_KEY' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  number: $('Postgres - Salvar Lead').first().json.telefone,\n  text: `Olá, ${$('Postgres - Salvar Lead').first().json.nome}! Recebemos seu contato na BACKE.co. Um especialista vai falar com você em breve para seguir com seu diagnóstico.`\n} }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000007",
+      "name": "HTTP - WhatsApp Cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        -80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.EVOLUTION_API_URL || 'https://SEU-EVOLUTION-API') + '/message/sendText/' + ($env.EVOLUTION_INSTANCE || 'SUA_INSTANCIA') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_API_KEY || 'CONFIGURE_EVOLUTION_API_KEY' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  number: $('Postgres - Salvar Lead').first().json.metadata?.vendedor?.telefone || $env.DEFAULT_SELLER_PHONE || 'CONFIGURE_SELLER_PHONE',\n  text: `Novo lead BACKE.co\\nID: ${$('Postgres - Salvar Lead').first().json.lead_id}\\nNome: ${$('Postgres - Salvar Lead').first().json.nome}\\nWhatsApp: ${$('Postgres - Salvar Lead').first().json.telefone}\\nEmail: ${$('Postgres - Salvar Lead').first().json.email || 'não informado'}\\nEmpresa: ${$('Postgres - Salvar Lead').first().json.metadata?.companyName || 'não informado'}\\nInteresse: ${$('Postgres - Salvar Lead').first().json.servico || 'não informado'}\\nOrigem: ${$('Postgres - Salvar Lead').first().json.origem?.source || 'website'} - ${$('Postgres - Salvar Lead').first().json.origem?.pageUrl || 'sem URL'}`\n} }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000008",
+      "name": "HTTP - Avisar Vendedor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        860,
+        -80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !$('HTTP - WhatsApp Cliente').first().json.error && !$('HTTP - Avisar Vendedor').first().json.error }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000009",
+      "name": "IF - WhatsApps Enviados?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.leads_site\nSET\n  status = 'whatsapp_enviado',\n  whatsapp_cliente_enviado = true,\n  whatsapp_vendedor_enviado = true,\n  erro_envio = NULL,\n  updated_at = NOW()\nWHERE id = $1::bigint\nRETURNING id::text AS lead_id, status, updated_at;",
+        "options": {
+          "queryBatching": "independently",
+          "queryReplacement": "={{ [ $('Postgres - Salvar Lead').first().json.lead_id ] }}",
+          "largeNumbersOutput": "text"
+        }
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000010",
+      "name": "Postgres - Atualizar Status Envio",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1380,
+        -160
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CLOUDFY",
+          "name": "Postgres Cloudfy"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.leads_site\nSET\n  status = 'erro_envio',\n  whatsapp_cliente_enviado = $2,\n  whatsapp_vendedor_enviado = $3,\n  erro_envio = $4,\n  updated_at = NOW()\nWHERE id = $1::bigint\nRETURNING id::text AS lead_id, status, erro_envio, updated_at;",
+        "options": {
+          "queryBatching": "independently",
+          "queryReplacement": "={{ [\n  $('Postgres - Salvar Lead').first().json.lead_id,\n  !$('HTTP - WhatsApp Cliente').first().json.error,\n  !$('HTTP - Avisar Vendedor').first().json.error,\n  [\n    $('HTTP - WhatsApp Cliente').first().json.error?.message ? `Cliente: ${$('HTTP - WhatsApp Cliente').first().json.error.message}` : null,\n    $('HTTP - Avisar Vendedor').first().json.error?.message ? `Vendedor: ${$('HTTP - Avisar Vendedor').first().json.error.message}` : null\n  ].filter(Boolean).join(' | ') || 'Falha desconhecida nos envios WhatsApp'\n] }}",
+          "largeNumbersOutput": "text"
+        }
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000011",
+      "name": "Postgres - Atualizar Erro Envio",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1380,
+        60
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CLOUDFY",
+          "name": "Postgres Cloudfy"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  ok: true,\n  company: $('Postgres - Salvar Lead').first().json.origem?.company || 'BACKE.co',\n  environment: $('Postgres - Salvar Lead').first().json.origem?.environment || 'sandbox',\n  leadReceived: true,\n  leadId: $('Postgres - Salvar Lead').first().json.lead_id,\n  message: 'Lead received'\n} }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000012",
+      "name": "Respond - Sucesso",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1640,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  ok: false,\n  leadReceived: true,\n  leadId: $('Postgres - Salvar Lead').first().json.lead_id,\n  message: 'Lead salvo, mas houve erro no envio de WhatsApp.',\n  error: $('Postgres - Atualizar Erro Envio').first().json.erro_envio\n} }}",
+        "options": {
+          "responseCode": 502
+        }
+      },
+      "id": "5f3a7d1e-1a2b-4d2c-9f8e-100000000013",
+      "name": "Respond - Erro Envio",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1640,
+        60
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Receber Lead do Site": {
+      "main": [
+        [
+          {
+            "node": "Code - Validar e Normalizar Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Validar e Normalizar Lead": {
+      "main": [
+        [
+          {
+            "node": "IF - Lead Valido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Lead Valido?": {
+      "main": [
+        [
+          {
+            "node": "Postgres - Criar Tabela Se Nao Existir",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Erro Validacao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres - Criar Tabela Se Nao Existir": {
+      "main": [
+        [
+          {
+            "node": "Postgres - Salvar Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres - Salvar Lead": {
+      "main": [
+        [
+          {
+            "node": "IF - Simular WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Simular WhatsApp?": {
+      "main": [
+        [
+          {
+            "node": "Code - Simular Envios WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP - WhatsApp Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Simular Envios WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Postgres - Atualizar Status Envio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - WhatsApp Cliente": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Avisar Vendedor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Avisar Vendedor": {
+      "main": [
+        [
+          {
+            "node": "IF - WhatsApps Enviados?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - WhatsApps Enviados?": {
+      "main": [
+        [
+          {
+            "node": "Postgres - Atualizar Status Envio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Postgres - Atualizar Erro Envio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres - Atualizar Status Envio": {
+      "main": [
+        [
+          {
+            "node": "Respond - Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres - Atualizar Erro Envio": {
+      "main": [
+        [
+          {
+            "node": "Respond - Erro Envio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-05-01T00:00:00.000Z",
+  "versionId": "5f3a7d1e-1a2b-4d2c-9f8e-100000000099"
+}
