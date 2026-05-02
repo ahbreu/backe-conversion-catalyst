@@ -3,7 +3,7 @@ import { MAINTENANCE_CONTACT } from "@/config/maintenance";
 
 const MaintenancePage = () => {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
+    <main className="relative min-h-[100dvh] overflow-x-hidden bg-background text-foreground">
       <div className="absolute inset-0">
         <svg
           className="h-full w-full"
@@ -52,34 +52,35 @@ const MaintenancePage = () => {
         </svg>
       </div>
 
-      <div className="absolute inset-x-0 top-0 z-10 border-b border-foreground/10 bg-background/50 backdrop-blur-sm">
-        <div className="container mx-auto flex items-center justify-between px-6 py-5 md:px-16">
-          <img src={logoTransparent} alt="BACKE Creative" className="h-8 md:h-11" />
-          <span className="rounded-full border border-primary/40 px-4 py-2 font-heading text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-primary">
-            Em atualiza&ccedil;&atilde;o
+      <div className="absolute inset-x-0 top-0 z-10 border-b border-foreground/10 bg-background/60 backdrop-blur-sm">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:gap-4 sm:px-6 md:px-10 lg:px-16">
+          <img src={logoTransparent} alt="BACKE Creative" className="h-8 w-8 shrink-0 md:h-11 md:w-11" />
+          <span className="shrink-0 whitespace-nowrap rounded-full border border-primary/40 px-2.5 py-1.5 font-heading text-[0.54rem] font-semibold uppercase leading-none tracking-[0.08em] text-primary min-[360px]:px-3 min-[360px]:text-[0.58rem] min-[360px]:tracking-[0.14em] sm:px-4 sm:py-2 sm:text-[0.68rem] sm:tracking-[0.22em]">
+            <span className="sm:hidden">Atualizando</span>
+            <span className="hidden sm:inline">Em atualiza&ccedil;&atilde;o</span>
           </span>
         </div>
       </div>
 
-      <section className="relative z-10 flex min-h-screen items-center px-6 pb-16 pt-28 md:px-16 md:pt-32">
-        <div className="container mx-auto grid items-center gap-12 lg:grid-cols-[minmax(0,0.95fr)_minmax(280px,0.55fr)]">
-          <div className="max-w-3xl">
-            <p className="mb-5 font-heading text-sm font-semibold uppercase tracking-[0.28em] text-primary">
+      <section className="relative z-10 flex min-h-[100dvh] items-center px-4 pb-12 pt-24 sm:px-6 sm:pt-28 md:px-10 md:pb-16 md:pt-32 lg:px-16">
+        <div className="mx-auto grid w-full max-w-7xl min-w-0 items-center gap-9 sm:gap-12 lg:grid-cols-[minmax(0,0.95fr)_minmax(280px,0.55fr)]">
+          <div className="min-w-0 max-w-3xl">
+            <p className="mb-4 font-heading text-xs font-semibold uppercase leading-relaxed tracking-[0.18em] text-primary sm:mb-5 sm:text-sm sm:tracking-[0.28em]">
               Site em constru&ccedil;&atilde;o
             </p>
-            <h1 className="font-display text-[clamp(2.6rem,7vw,6.5rem)] font-bold leading-[0.88] tracking-normal">
+            <h1 className="max-w-[12ch] font-heading text-[clamp(2.25rem,11vw,4.1rem)] font-bold leading-[1.08] tracking-normal text-balance sm:max-w-3xl sm:text-[clamp(3rem,7vw,6.5rem)] sm:leading-[1.04]">
               Estamos atualizando nossa presen&ccedil;a digital.
             </h1>
-            <p className="mt-7 max-w-2xl font-body text-base leading-relaxed text-muted-foreground md:text-lg">
+            <p className="mt-6 max-w-full font-body text-base leading-relaxed text-muted-foreground sm:mt-7 sm:max-w-2xl md:text-lg">
               O site da Backe est&aacute; sendo preparado para uma nova fase. Em breve,
               voltaremos com uma experi&ecirc;ncia mais completa para apresentar nossos
               servi&ccedil;os, projetos e canais de atendimento.
             </p>
 
-            <div className="mt-9 flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="mt-8 flex flex-col gap-4 sm:mt-9 sm:flex-row sm:items-center">
               <a
                 href={MAINTENANCE_CONTACT.href}
-                className="inline-flex min-h-12 items-center justify-center rounded-full bg-gradient-brand px-8 py-3 font-heading text-sm font-semibold uppercase tracking-widest text-primary-foreground transition-all duration-300 glow-brand hover:scale-[1.02] hover:glow-brand-hover"
+                className="inline-flex min-h-12 w-full max-w-full items-center justify-center rounded-full bg-gradient-brand px-6 py-3 text-center font-heading text-xs font-semibold uppercase leading-relaxed tracking-[0.14em] text-primary-foreground transition-all duration-300 glow-brand hover:scale-[1.02] hover:glow-brand-hover sm:w-auto sm:px-8 sm:text-sm sm:tracking-widest"
               >
                 {MAINTENANCE_CONTACT.label}
               </a>
@@ -89,11 +90,11 @@ const MaintenancePage = () => {
             </div>
           </div>
 
-          <aside className="border-l border-primary/40 pl-6 md:pl-8">
-            <p className="font-heading text-xs font-semibold uppercase tracking-[0.25em] text-primary">
+          <aside className="min-w-0 border-t border-primary/30 pt-6 lg:border-l lg:border-t-0 lg:border-primary/40 lg:pl-8 lg:pt-0">
+            <p className="font-heading text-xs font-semibold uppercase leading-relaxed tracking-[0.2em] text-primary sm:tracking-[0.25em]">
               Voltamos em breve
             </p>
-            <p className="mt-5 font-body text-2xl font-medium leading-tight text-foreground md:text-3xl">
+            <p className="mt-4 max-w-xl font-body text-xl font-medium leading-snug text-foreground sm:mt-5 sm:text-2xl md:text-3xl">
               Obrigado pela paci&ecirc;ncia enquanto finalizamos os pr&oacute;ximos detalhes.
             </p>
             <div className="mt-8 h-1 w-28 rounded-full bg-gradient-brand" />
