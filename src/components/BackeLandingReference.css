@@ -20,7 +20,11 @@
   color: var(--br-text-1);
   font-family: "DM Sans", sans-serif;
   font-size: 16px;
+  font-synthesis: none;
   line-height: 1.65;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .backe-reference *,
@@ -55,11 +59,11 @@
 @keyframes br-fade-up {
   from {
     opacity: 0;
-    transform: translateY(24px);
+    translate: 0 24px;
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    translate: 0 0;
   }
 }
 
@@ -116,6 +120,7 @@
   color: #ffffff;
   cursor: pointer;
   font-family: "Syne", sans-serif;
+  font-stretch: normal;
   font-weight: 700;
   transition: opacity 0.2s, transform 0.2s;
 }
@@ -124,8 +129,10 @@
   min-height: 42px;
   border-radius: 999px;
   padding: 11px 26px;
+  line-height: 1.25;
   font-size: 13px;
   letter-spacing: 0.02em;
+  text-align: center;
 }
 
 .br-btn-main:hover,
@@ -177,7 +184,9 @@
   position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 9px;
+  max-width: 100%;
   margin-bottom: 32px;
   border: 1px solid var(--br-border-2);
   border-radius: 999px;
@@ -186,6 +195,8 @@
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.1em;
+  line-height: 1.45;
+  text-align: center;
   text-transform: uppercase;
 }
 
@@ -210,18 +221,21 @@
 
 .br-hero h1 {
   position: relative;
+  width: min(100%, 860px);
   max-width: 860px;
   margin: 0 0 24px;
   color: var(--br-white);
   font-family: "Syne", sans-serif;
   font-size: clamp(2.8rem, 5.6vw, 5rem);
+  font-stretch: normal;
   font-weight: 800;
   letter-spacing: 0;
-  line-height: 1.07;
+  line-height: 1.12;
 }
 
 .br-hero-sub {
   position: relative;
+  width: min(100%, 540px);
   max-width: 540px;
   margin: 0 0 44px;
   color: var(--br-text-2);
@@ -391,9 +405,10 @@
   margin: 0;
   color: var(--br-white);
   font-family: "Syne", sans-serif;
+  font-stretch: normal;
   font-weight: 800;
   letter-spacing: 0;
-  line-height: 1.1;
+  line-height: 1.14;
 }
 
 .br-manifesto-quote {
@@ -429,6 +444,7 @@
 .br-title {
   margin-bottom: 16px;
   font-size: clamp(1.9rem, 3.2vw, 2.8rem);
+  overflow-wrap: anywhere;
 }
 
 .br-subtitle {
@@ -455,6 +471,7 @@
   padding: 9px 22px;
   font-family: "DM Sans", sans-serif;
   font-size: 13px;
+  line-height: 1.25;
   transition: all 0.22s;
 }
 
@@ -922,6 +939,8 @@
   padding: 16px;
   font-size: 1rem;
   letter-spacing: 0.03em;
+  line-height: 1.25;
+  text-align: center;
 }
 
 .br-submit-btn:disabled {
@@ -939,6 +958,13 @@
   flex: 0 0 48px;
   background: #2a2a2a;
   font-size: 1.1rem;
+}
+
+.br-submit-row .br-submit-btn:not(.br-back-btn) {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  white-space: normal;
 }
 
 .br-form-legal {
@@ -1087,6 +1113,7 @@
 @media (max-width: 640px) {
   .br-nav {
     gap: 14px;
+    padding-inline: 16px;
   }
 
   .br-nav-logo img {
@@ -1106,11 +1133,15 @@
   .br-hero-badge {
     max-width: 100%;
     justify-content: center;
+    padding-inline: 14px;
+    font-size: 10px;
+    letter-spacing: 0.06em;
     text-align: center;
   }
 
   .br-hero h1 {
-    font-size: clamp(2.35rem, 13vw, 3.6rem);
+    font-size: clamp(2.15rem, 10vw, 2.8rem);
+    line-height: 1.18;
   }
 
   .br-service-grid,
@@ -1125,6 +1156,14 @@
     padding: 32px 28px;
   }
 
+  .br-cta-banner .br-btn-main,
+  .br-faq-cta .br-btn-main,
+  .br-hero-btns .br-btn-main,
+  .br-hero-btns .br-btn-ghost {
+    width: 100%;
+    max-width: 100%;
+  }
+
   .br-stat {
     padding: 40px 20px;
   }
@@ -1135,5 +1174,40 @@
 
   .br-submit-row {
     align-items: stretch;
+  }
+}
+
+@media (max-width: 360px) {
+  .br-wrap,
+  .br-manifesto-inner {
+    padding-inline: 20px;
+  }
+
+  .br-hero {
+    padding-inline: 18px;
+  }
+
+  .br-hero h1 {
+    font-size: clamp(2rem, 10vw, 2.25rem);
+    line-height: 1.2;
+  }
+
+  .br-title {
+    font-size: 1.72rem;
+    line-height: 1.2;
+  }
+
+  .br-service-card,
+  .br-cta-banner,
+  .br-form-card {
+    padding-inline: 20px;
+  }
+
+  .br-submit-row {
+    gap: 10px;
+  }
+
+  .br-back-btn {
+    flex-basis: 44px;
   }
 }
