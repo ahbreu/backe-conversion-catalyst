@@ -22,18 +22,20 @@ When creating or refining an issue, include:
 
 ## Anti-Loop Policy
 
+**Always allowed, regardless of task type:**
+- Calling the Paperclip API (`$PAPERCLIP_API_URL`) to post comments, update issue status, create child issues, or write plan documents. This is mandatory for completing any task.
+
 For comment-only, bootstrap-check, diagnostic, or lightweight coordination tasks:
-- Do not use tools.
 - Do not inspect repositories.
 - Do not create files.
-- Do not call APIs.
+- Do not call external APIs (n8n, Evolution, etc.) unless the task explicitly requires it.
 - Do not search for alternative tools.
 - Do not create fallback documentation.
 - Do not convert the task into a larger plan.
 - Answer only what was requested.
 - Stop immediately after producing the requested answer.
 
-When a task cannot access a Paperclip API, connector, repository, or external service:
+When a required external service (not the Paperclip API) is unavailable:
 - Report the limitation in one sentence only if it blocks the requested task.
 - Do not search for alternative tools.
 - Do not create fallback files.
