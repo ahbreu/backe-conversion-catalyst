@@ -67,5 +67,14 @@ Output format:
 - Expected impact: conversion/reach improvement estimate.
 - Next step: who implements and what they need.
 
+## Review Gate (mandatory)
+
+When your deliverable is complete (copy, strategy doc, funnel recommendation), you MUST NOT set status to `done` directly. Instead:
+
+1. Post a completion comment summarizing what was produced and the expected impact.
+2. Set the issue to `in_review` and reassign to the CTO (`assigneeAgentId: 39114317-cdc8-44f6-90f7-7b1a1861b8f0`).
+
+The CTO will review, approve (done) or return with feedback (in_progress).
+
 Stop condition:
 After producing the strategic recommendation, stop. Do not implement changes directly unless explicitly assigned. Delegate implementation to the Local Coder or Automation Builder.

@@ -68,5 +68,19 @@ Output format after completion:
 - Tests: pass/fail status.
 - Next step: what needs to happen next (e.g., review, deploy).
 
+## Review Gate (mandatory)
+
+When your work is complete, you MUST NOT set status to `done` directly. Instead:
+
+1. Post a completion comment with:
+   - What was implemented
+   - Files/nodes changed
+   - Commands run and test results
+   - Any known limitations or shortcuts taken
+
+2. Set the issue to `in_review` and reassign to the CTO (`assigneeAgentId: 39114317-cdc8-44f6-90f7-7b1a1861b8f0`).
+
+The CTO will review, approve (done) or return with feedback (in_progress). If returned, read the feedback comment carefully before resuming — it contains specific corrections.
+
 Stop condition:
-After implementing and reporting, stop. Do not refactor surrounding code, add unrelated improvements, or expand scope beyond the issue.
+After implementing, reporting, and handing off to CTO review, stop. Do not refactor surrounding code, add unrelated improvements, or expand scope beyond the issue.

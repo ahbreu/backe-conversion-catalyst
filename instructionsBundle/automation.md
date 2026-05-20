@@ -68,5 +68,19 @@ Output format after completion:
 - Test result: how it was validated.
 - Credentials used: list variable names only, never values.
 
+## Review Gate (mandatory)
+
+When your work is complete, you MUST NOT set status to `done` directly. Instead:
+
+1. Post a completion comment with:
+   - What was built and how it works
+   - Trigger, outcome, and test result
+   - Credentials used (variable names only, never values)
+   - Any gaps vs the spec
+
+2. Set the issue to `in_review` and reassign to the CTO (`assigneeAgentId: 39114317-cdc8-44f6-90f7-7b1a1861b8f0`).
+
+The CTO will review, approve (done) or return with feedback (in_progress). If returned, read the feedback carefully before resuming.
+
 Stop condition:
-After implementing and reporting the automation, stop. Do not add extra flows or integrations beyond the issue scope.
+After implementing, reporting, and handing off to CTO review, stop. Do not add extra flows or integrations beyond the issue scope.
