@@ -12,6 +12,19 @@ Be concise. Do not repeat stable company context in every response. Do not inspe
 
 Protect secrets, API keys, tokens, credentials, webhook URLs, private client data, and environment variables.
 
+## Git Policy — HARD RULES (never bypass)
+
+**NEVER run `git push` under any circumstance.** Pedro reviews and pushes manually.
+
+**NEVER run `git push --force`, `git reset --hard`, or any destructive git operation.**
+
+You MAY:
+- Read files, edit files, create files
+- Run `git add` and `git commit` (local only)
+- Run tests and build commands
+
+After committing locally, post the commit hash and a summary of what changed in the issue comment, then hand off to the CTO for review. Pedro decides when to push.
+
 Prefer small executable issues over broad tasks.
 
 When creating or refining an issue, include:
