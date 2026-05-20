@@ -934,6 +934,35 @@
   line-height: 1.45;
 }
 
+.br-error-actions {
+  margin-top: 16px;
+}
+
+.br-error-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.br-retry-btn {
+  border: 1px solid var(--br-border-2);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--br-text-2);
+  cursor: pointer;
+  padding: 11px 22px;
+  font-family: "Syne", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.br-retry-btn:hover {
+  border-color: var(--br-text-3);
+  color: var(--br-white);
+}
+
 .br-form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1033,6 +1062,18 @@
   font-size: 0.9rem;
   font-weight: 700;
   transition: opacity 0.2s;
+}
+
+.br-wpp-btn.br-wpp-btn-text {
+  background: var(--br-bg);
+  border: 1px solid var(--br-border-2);
+  color: var(--br-text-2);
+  cursor: pointer;
+}
+
+.br-wpp-btn.br-wpp-btn-text:hover {
+  border-color: var(--br-text-3);
+  color: var(--br-white);
 }
 
 .br-wpp-btn:hover {

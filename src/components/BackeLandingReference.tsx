@@ -294,6 +294,14 @@ const BackeLandingReference = () => {
     }
   };
 
+  const resetForm = () => {
+    setForm(initialForm);
+    setFieldErrors({});
+    setSubmitMessage(null);
+    setIsSubmitted(false);
+    setStep(1);
+  };
+
   const selectInterestAndScroll = (interest: string) => {
     setForm((currentForm) => ({ ...currentForm, interesse: interest }));
     scrollToSection("contato");
@@ -788,14 +796,19 @@ const BackeLandingReference = () => {
                         </button>
                       </div>
                       {submitMessage && (
-                        <>
+                        <div className="br-error-actions">
                           <p className="br-form-alert">{submitMessage}</p>
-                          {whatsappHref && (
-                            <a className="br-wpp-btn br-wpp-btn-inline" href={whatsappHref} target="_blank" rel="noreferrer">
-                              Falar no WhatsApp
-                            </a>
-                          )}
-                        </>
+                          <div className="br-error-btns">
+                            <button className="br-retry-btn" type="button" onClick={resetForm}>
+                              Tentar novamente
+                            </button>
+                            {whatsappHref && (
+                              <a className="br-wpp-btn br-wpp-btn-inline" href={whatsappHref} target="_blank" rel="noreferrer">
+                                Falar no WhatsApp
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       )}
                       <p className="br-form-legal">Seus dados são protegidos e nunca serão compartilhados.</p>
                     </div>
@@ -809,10 +822,14 @@ const BackeLandingReference = () => {
                     Nossa equipe vai entrar em contato em até <strong>24 horas</strong>.
                   </p>
                   <p className="br-success-muted">Confira seu e-mail e WhatsApp.</p>
-                  {whatsappHref && (
+                  {whatsappHref ? (
                     <a className="br-wpp-btn" href={whatsappHref} target="_blank" rel="noreferrer">
                       Chamar no WhatsApp agora
                     </a>
+                  ) : (
+                    <button className="br-wpp-btn br-wpp-btn-text" type="button" onClick={resetForm}>
+                      Fazer nova solicitação
+                    </button>
                   )}
                 </div>
               )}
