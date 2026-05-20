@@ -154,6 +154,7 @@
 .br-hero {
   position: relative;
   display: flex;
+  min-height: 100svh;
   min-height: 100vh;
   flex-direction: column;
   align-items: center;
@@ -1038,6 +1039,44 @@
   opacity: 0.88;
 }
 
+.br-wpp-btn-inline {
+  display: inline-flex;
+  margin-top: 14px;
+  padding: 11px 24px;
+  font-size: 0.82rem;
+}
+
+.br-wpp-float {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #25d366;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.br-wpp-float:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(37, 211, 102, 0.45);
+}
+
+@media (max-width: 640px) {
+  .br-wpp-float {
+    right: 16px;
+    bottom: 16px;
+    width: 50px;
+    height: 50px;
+  }
+}
+
 .br-footer {
   display: flex;
   flex-wrap: wrap;
@@ -1134,7 +1173,7 @@
   }
 
   .br-hero {
-    padding: 132px 22px 70px;
+    padding: 120px 22px 60px;
   }
 
   .br-hero-badge {
@@ -1149,6 +1188,19 @@
   .br-hero h1 {
     font-size: clamp(1.72rem, 8vw, 2.25rem);
     line-height: 1.22;
+  }
+
+  .br-hero-sub {
+    margin-bottom: 32px;
+    font-size: clamp(0.92rem, 3.8vw, 1.05rem);
+  }
+
+  .br-hero-btns {
+    gap: 10px;
+  }
+
+  .br-hero-scroll {
+    margin-top: 48px;
   }
 
   .br-stats {
