@@ -9,6 +9,7 @@ import {
   validateContactForm,
 } from "@/lib/leadCapture";
 import { API_URL, assertApiUrl } from "@/config/api";
+import ClientsMarquee from "./ClientsMarquee";
 import "./BackeLandingReference.css";
 
 const PUBLIC_WHATSAPP_PHONE = String(import.meta.env.VITE_PUBLIC_WHATSAPP_PHONE || "").replace(/\D/g, "");
@@ -431,6 +432,7 @@ const BackeLandingReference = () => {
         <div className="br-nav-links">
           <a href="#servicos">Serviços</a>
           <a href="#processo">Processo</a>
+          <a href="#/blog">Blog</a>
           <a href="#contato">Contato</a>
         </div>
         <button className="br-btn-main" type="button" onClick={() => selectInterestAndScroll("Diagnóstico gratuito")}>
@@ -476,6 +478,8 @@ const BackeLandingReference = () => {
           ))}
         </div>
       </div>
+
+      <ClientsMarquee />
 
       <section className="br-stats" aria-label="Indicadores BACKE.co">
         {stats.map((stat) => (
@@ -880,7 +884,7 @@ const BackeLandingReference = () => {
         <p>© 2026 BACKE.co. Todos os direitos reservados.</p>
         <div className="br-foot-links">
           <a href="https://www.instagram.com/backe.co/" target="_blank" rel="noreferrer">Instagram</a>
-          <a href="#contato">LinkedIn</a>
+          <a href="#/blog">Blog</a>
           {whatsappGeneralHref ? (
             <a href={whatsappGeneralHref} target="_blank" rel="noreferrer">
               WhatsApp

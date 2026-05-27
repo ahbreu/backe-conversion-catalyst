@@ -1,8 +1,11 @@
 User-agent: Googlebot
 Allow: /
+Allow: /blog
+Allow: /sitemap.xml
 
 User-agent: Bingbot
 Allow: /
+Allow: /blog
 
 User-agent: Twitterbot
 Allow: /
@@ -12,3 +15,6 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /assets/
+
+Sitemap: https://backe.co/sitemap.xml
