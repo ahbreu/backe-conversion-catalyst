@@ -433,6 +433,7 @@ const BackeLandingReference = () => {
           <a href="#servicos">Serviços</a>
           <a href="#processo">Processo</a>
           <a href="#/blog">Blog</a>
+          <a href="#/parceiros">Seja Parceiro</a>
           <a href="#contato">Contato</a>
         </div>
         <button className="br-btn-main" type="button" onClick={() => selectInterestAndScroll("Diagnóstico gratuito")}>
@@ -885,6 +886,7 @@ const BackeLandingReference = () => {
         <div className="br-foot-links">
           <a href="https://www.instagram.com/backe.co/" target="_blank" rel="noreferrer">Instagram</a>
           <a href="#/blog">Blog</a>
+          <a href="#/parceiros">Seja Parceiro</a>
           {whatsappGeneralHref ? (
             <a href={whatsappGeneralHref} target="_blank" rel="noreferrer">
               WhatsApp
