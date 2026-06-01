@@ -18,8 +18,8 @@ const logos = [
 
 const ClientsMarquee = () => {
   return (
-    <section className="border-y border-border py-8 overflow-hidden bg-background">
-      <div className="clients-marquee-track flex gap-16 items-center">
+    <section className="clients-marquee-section border-y border-border py-8 overflow-hidden bg-background">
+      <div className="clients-marquee-track">
         {[...logos, ...logos].map((logo, index) => (
           <img
             key={`${logo}-${index}`}

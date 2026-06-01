@@ -98,6 +98,38 @@
   }
 }
 
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.clients-marquee-track {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  gap: 4rem;
+  animation: marquee 35s linear infinite;
+}
+
+.clients-marquee-section:hover .clients-marquee-track {
+  animation-play-state: paused;
+}
+
+.clients-marquee-logo {
+  filter: grayscale(1);
+  opacity: 0.5;
+  transition: filter 0.3s ease, opacity 0.3s ease;
+}
+
+.clients-marquee-logo:hover {
+  filter: grayscale(0);
+  opacity: 1;
+}
+
 html {
   scroll-behavior: smooth;
 }
