@@ -432,8 +432,6 @@ const BackeLandingReference = () => {
         <div className="br-nav-links">
           <a href="#servicos">Serviços</a>
           <a href="#processo">Processo</a>
-          <a href="#/blog">Blog</a>
-          <a href="#/parceiros">Seja Parceiro</a>
           <a href="#contato">Contato</a>
         </div>
         <button className="br-btn-main" type="button" onClick={() => selectInterestAndScroll("Diagnóstico gratuito")}>
@@ -470,16 +468,6 @@ const BackeLandingReference = () => {
         </div>
       </section>
 
-      <div className="br-marquee" aria-hidden="true">
-        <div className="br-marquee-track">
-          {[...marqueeItems, ...marqueeItems].map((item, index) => (
-            <span className="br-mq-item" key={`${item}-${index}`}>
-              {item}
-            </span>
-          ))}
-        </div>
-      </div>
-
       <ClientsMarquee />
 
       <section className="br-stats" aria-label="Indicadores BACKE.co">
@@ -490,6 +478,16 @@ const BackeLandingReference = () => {
           </div>
         ))}
       </section>
+
+      <div className="br-marquee" aria-hidden="true">
+        <div className="br-marquee-track">
+          {[...marqueeItems, ...marqueeItems].map((item, index) => (
+            <span className="br-mq-item" key={`${item}-${index}`}>
+              {item}
+            </span>
+          ))}
+        </div>
+      </div>
 
       <section className="br-manifesto">
         <div className="br-manifesto-inner">
@@ -564,43 +562,6 @@ const BackeLandingReference = () => {
             <button className="br-btn-main br-nowrap" type="button" onClick={() => selectInterestAndScroll("Solução personalizada")}>
               Falar com especialista
             </button>
-          </div>
-        </div>
-      </section>
-
-      <section className="br-services-local">
-        <div className="br-wrap">
-          <div className="br-label">Soluções por segmento</div>
-          <h2 className="br-title">
-            Sistemas e automação para
-            <br />
-            <span className="br-gradient-text">seu tipo de negócio</span>
-          </h2>
-          <p className="br-subtitle">
-            Páginas especializadas com tudo que você precisa saber sobre nossas soluções para cada segmento.
-          </p>
-
-          <div className="br-services-local-grid">
-            <a className="br-services-local-card" href="#/sistema-para-barbearia-sao-paulo">
-              <h3>Sistema para Barbearia em São Paulo</h3>
-              <p>Agendamento online, financeiro, clientes e marketing digital. Tudo em um só lugar para sua barbearia.</p>
-              <span className="br-services-local-link">Ver solução completa</span>
-            </a>
-            <a className="br-services-local-card" href="#/gestao-de-agenda-para-barbearia">
-              <h3>Gestão de Agenda para Barbearia</h3>
-              <p>Acabe com faltas e atrasos. Agendamento automático, lembretes por WhatsApp e lista de espera inteligente.</p>
-              <span className="br-services-local-link">Ver funcionalidades</span>
-            </a>
-            <a className="br-services-local-card" href="#/software-para-salao-de-beleza">
-              <h3>Software para Salão de Beleza</h3>
-              <p>Agenda inteligente, comissões automáticas, estoque e programa de fidelidade para seu salão.</p>
-              <span className="br-services-local-link">Conhecer o software</span>
-            </a>
-            <a className="br-services-local-card" href="#/automacao-para-pequenas-empresas">
-              <h3>Automação para Pequenas Empresas</h3>
-              <p>WhatsApp, CRM, financeiro e marketing automatizados. Economize 15-20 horas por semana.</p>
-              <span className="br-services-local-link">Ver automações</span>
-            </a>
           </div>
         </div>
       </section>
@@ -885,8 +846,6 @@ const BackeLandingReference = () => {
         <p>© 2026 BACKE.co. Todos os direitos reservados.</p>
         <div className="br-foot-links">
           <a href="https://www.instagram.com/backe.co/" target="_blank" rel="noreferrer">Instagram</a>
-          <a href="#/blog">Blog</a>
-          <a href="#/parceiros">Seja Parceiro</a>
           {whatsappGeneralHref ? (
             <a href={whatsappGeneralHref} target="_blank" rel="noreferrer">
               WhatsApp
