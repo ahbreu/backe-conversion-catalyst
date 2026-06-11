@@ -5,13 +5,24 @@ const RETRY_ATTEMPTS = Number(process.env.N8N_RETRY_ATTEMPTS || 2);
 const RETRY_BASE_DELAY_MS = Number(process.env.N8N_RETRY_BASE_DELAY_MS || 500);
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ALLOWED_SERVICE_INTERESTS = new Set([
+  'automacao', 'sites', 'trafego', 'gestao', 'consultoria', 'outro', 'automation',
+  'website', 'traffic', 'management', 'consulting', 'other'
+]);
+const ALLOWED_FATURAMENTO = new Set([
+  'ate-10k', '10k-50k', '50k-200k', '200k-500k', 'acima-500k',
+  'nao-informado', 'prefiro-nao-dizer'
+]);
+const HTML_TAG_PATTERN = /<[^>]*>/g;
+
+const stripHtml = (value) => String(value ?? '').replace(HTML_TAG_PATTERN, '').trim();
 
 const nullableString = (value) => {
-  const text = String(value ?? '').trim();
+  const text = stripHtml(value);
   return text || null;
 };
 
-const requiredString = (value) => String(value ?? '').trim();
+const requiredString = (value) => stripHtml(value);
 
 const normalizePhone = (value) => {
   const digits = String(value ?? '').replace(/\D/g, '');
@@ -113,6 +124,13 @@ const validateLeadPayload = (payload) => {
 
   if ((payload.lead.email?.length || 0) > 255 || payload.lead.phone.length > 20) {
     return { ok: false, message: 'Campos excedem o limite permitido.' };
+  }
+
+  if (
+    payload.lead.serviceInterest &&
+    !ALLOWED_SERVICE_INTERESTS.has(payload.lead.serviceInterest.toLowerCase())
+  ) {
+    return { ok: false, message: 'Selecione uma opção válida para o serviço de interesse.' };
   }
 
   const hasAnyLeadSignal = [

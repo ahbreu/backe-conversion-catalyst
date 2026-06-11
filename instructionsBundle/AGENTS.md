@@ -27,6 +27,21 @@ After committing locally, post the commit hash and a summary of what changed in 
 
 Prefer small executable issues over broad tasks.
 
+## Progress Visibility (mandatory for all agents)
+
+Every time you work on an `in_progress` issue, you MUST post a progress comment before exiting the heartbeat. This is required even if you made no changes — explain why.
+
+Minimum comment format:
+```
+## Status: {o que foi feito neste heartbeat}
+
+- Feito: {lista do que avançou}
+- Próximo: {próxima ação concreta}
+- Bloqueio: {se houver — o que impede e quem precisa agir}
+```
+
+If you are blocked, ALWAYS set the issue to `blocked` and name the exact unblock action and responsible party. Never leave an issue `in_progress` if you cannot make progress.
+
 When creating or refining an issue, include:
 - Objective
 - Context

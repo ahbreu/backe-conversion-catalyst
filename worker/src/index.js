@@ -2,6 +2,11 @@ const DEFAULT_ERROR_MESSAGE =
   "Nao conseguimos enviar sua solicitacao agora. Tente novamente ou fale conosco pelo WhatsApp.";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const ALLOWED_SERVICE_INTERESTS = new Set([
+  "automacao", "sites", "trafego", "gestao", "consultoria", "outro",
+  "automation", "website", "traffic", "management", "consulting", "other",
+]);
+const HTML_TAG_PATTERN = /<[^>]*>/g;
 const MAX_BODY_BYTES = 64 * 1024;
 
 // Best-effort protection for repeated attempts inside a warm Worker isolate.
@@ -9,11 +14,11 @@ const rateLimitStore = new Map();
 const leadFingerprintStore = new Map();
 
 const nullableString = (value) => {
-  const text = String(value ?? "").trim();
+  const text = String(value ?? "").replace(HTML_TAG_PATTERN, "").trim();
   return text || null;
 };
 
-const requiredString = (value) => String(value ?? "").trim();
+const requiredString = (value) => String(value ?? "").replace(HTML_TAG_PATTERN, "").trim();
 
 const isTruthy = (value) => ["1", "true", "yes"].includes(String(value || "").toLowerCase());
 
@@ -266,6 +271,13 @@ const validateLeadPayload = (payload) => {
 
   if ((payload.lead.email?.length || 0) > 255 || payload.lead.phone.length > 20) {
     return { ok: false, message: "Campos excedem o limite permitido." };
+  }
+
+  if (
+    payload.lead.serviceInterest &&
+    !ALLOWED_SERVICE_INTERESTS.has(payload.lead.serviceInterest.toLowerCase())
+  ) {
+    return { ok: false, message: "Selecione uma opcao valida para o servico de interesse." };
   }
 
   const hasAnyLeadSignal = [

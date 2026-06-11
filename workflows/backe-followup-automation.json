@@ -1,0 +1,271 @@
+{
+  "name": "BACKE.co - Follow-up Automatico Pos-Lead WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "bac-fu-scheduler",
+      "name": "Schedule - A Cada 1 Hora",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-400, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    scanTimestamp: new Date().toISOString(),\n    dryRun: String($env.FOLLOWUP_DRY_RUN || '').toLowerCase() === 'true',\n    evolutionBaseUrl: $env.EVOLUTION_API_URL || 'https://groundedlungfish-evolution.cloudfy.live',\n    evolutionInstance: $env.EVOLUTION_INSTANCE || 'backe%20-%20bruno',\n    evolutionApiKey: $env.EVOLUTION_API_KEY || ''\n  }\n}];"
+      },
+      "id": "bac-fu-init",
+      "name": "Code - Init Scan Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-160, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  id::text AS lead_id,\n  nome,\n  COALESCE(empresa, metadata->>'companyName', 'cliente') AS empresa,\n  telefone,\n  email,\n  servico,\n  metadata,\n  status,\n  COALESCE(followup_count, 0) AS followup_count,\n  created_at AS lead_created_at,\n  last_response_at\nFROM public.leads_site\nWHERE status IN ('whatsapp_enviado', 'recebido')\n  AND COALESCE(followup_count, 0) < 2\n  AND created_at < NOW() - INTERVAL '24 hours'\n  AND (\n    last_response_at IS NULL \n    OR last_response_at < NOW() - INTERVAL '24 hours'\n  )\nORDER BY created_at ASC\nLIMIT 50;",
+        "options": {
+          "queryBatching": "single",
+          "largeNumbersOutput": "text"
+        }
+      },
+      "id": "bac-fu-query-leads",
+      "name": "Postgres - Buscar Leads Elegiveis",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [100, 0],
+      "credentials": {
+        "postgres": {
+          "id": "Bljs2zzbjcdTZLaf",
+          "name": "postgres_cloudfy"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "type": "object"
+          },
+          "conditions": [
+            {
+              "id": "cond-has-leads",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bac-fu-check-leads",
+      "name": "IF - Tem Leads Elegiveis?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [340, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const leads = $input.all();\nreturn leads.map(item => ({\n  json: {\n    ...item.json,\n    followupNumber: parseInt(item.json.followup_count) + 1,\n    scanTimestamp: $input.first().json.scanTimestamp || new Date().toISOString()\n  }\n}));"
+      },
+      "id": "bac-fu-split-leads",
+      "name": "Code - Split Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, -160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $input.first().json;\nconst empresa = lead.empresa || 'sua empresa';\nconst followupMessages = {\n  1: `Ola, ${lead.nome}! Tudo bem?\\n\\nVimos que voce demonstrou interesse nos nossos servicos de automacao para a ${empresa} e ainda nao conseguimos te atender.\\n\\nComo podemos te ajudar? Estamos disponiveis para conversar sobre como otimizar seu negocio.\\n\\nAguardamos seu retorno!`,\n  2: `Oi, ${lead.nome}!\\n\\nPassando novamente para ver se podemos ajudar a ${empresa} com automacao e captacao de leads.\\n\\nSe ainda tiver interesse, e so responder essa mensagem. Caso contrario, tudo bem tambem!\\n\\nAbracos, equipe BACKE.co`\n};\n\nconst messageText = followupMessages[lead.followupNumber] || followupMessages[1];\n\nreturn [{\n  json: {\n    ...lead,\n    followupMessage: messageText\n  }\n}];"
+      },
+      "id": "bac-fu-build-message",
+      "name": "Code - Montar Mensagem Personalizada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, -160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "type": "object"
+          },
+          "conditions": [
+            {
+              "id": "cond-dry-run",
+              "leftValue": "={{ String($env.FOLLOWUP_DRY_RUN || '').toLowerCase() }}",
+              "rightValue": "true",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bac-fu-check-dry-run",
+      "name": "IF - Dry Run Mode?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, -280]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $input.first().json;\nreturn [{\n  json: {\n    leadId: lead.lead_id,\n    phone: lead.telefone,\n    nome: lead.nome,\n    followupNumber: lead.followupNumber,\n    message: lead.followupMessage,\n    dryRun: true,\n    sentAt: new Date().toISOString(),\n    whatsappOk: true\n  }\n}];"
+      },
+      "id": "bac-fu-dry-run",
+      "name": "Code - Simular Envio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1380, -400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Code - Init Scan Context').first().json.evolutionBaseUrl + '/message/sendText/' + $('Code - Init Scan Context').first().json.evolutionInstance }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Code - Init Scan Context').first().json.evolutionApiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  number: $json.telefone,\n  text: $json.followupMessage\n} }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "bac-fu-send-whatsapp",
+      "name": "HTTP - Enviar WhatsApp Follow-up",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1380, -160],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $input.first().json;\nconst httpResult = $('HTTP - Enviar WhatsApp Follow-up').first();\nconst httpError = httpResult.json?.error || httpResult.error;\n\nreturn [{\n  json: {\n    leadId: lead.lead_id,\n    phone: lead.telefone,\n    nome: lead.nome,\n    followupNumber: lead.followupNumber,\n    message: lead.followupMessage,\n    dryRun: false,\n    sentAt: new Date().toISOString(),\n    whatsappOk: !httpError,\n    whatsappError: httpError || null\n  }\n}];"
+      },
+      "id": "bac-fu-capture-result",
+      "name": "Code - Capturar Resultado Envio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1640, -160]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.leads_site \nSET \n  followup_count = COALESCE(followup_count, 0) + 1,\n  last_followup_at = NOW(),\n  status = CASE \n    WHEN COALESCE(followup_count, 0) + 1 >= 2 THEN 'frio'\n    ELSE status\n  END,\n  updated_at = NOW()\nWHERE id = $1::bigint;",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [$json.leadId] }}",
+          "largeNumbersOutput": "text"
+        }
+      },
+      "id": "bac-fu-update-followup",
+      "name": "Postgres - Registrar Follow-up",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1900, -280],
+      "credentials": {
+        "postgres": {
+          "id": "Bljs2zzbjcdTZLaf",
+          "name": "postgres_cloudfy"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.all();\nconst sent = results.filter(r => r.json.whatsappOk).length;\nconst failed = results.filter(r => !r.json.whatsappOk).length;\nconst markedCold = results.filter(r => parseInt(r.json.followupNumber) >= 2).length;\n\nreturn [{\n  json: {\n    scanComplete: true,\n    totalProcessed: results.length,\n    followupsSent: sent,\n    followupsFailed: failed,\n    leadsMarkedCold: markedCold,\n    completedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "bac-fu-aggregate",
+      "name": "Code - Agregar Resultados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2160, -280]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    scanComplete: true,\n    totalProcessed: 0,\n    followupsSent: 0,\n    followupsFailed: 0,\n    leadsMarkedCold: 0,\n    noEligibleLeads: true,\n    completedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "bac-fu-no-leads",
+      "name": "Code - Sem Leads Elegiveis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 160]
+    }
+  ],
+  "connections": {
+    "Schedule - A Cada 1 Hora": {
+      "main": [[{"node": "Code - Init Scan Context", "type": "main", "index": 0}]]
+    },
+    "Code - Init Scan Context": {
+      "main": [[{"node": "Postgres - Buscar Leads Elegiveis", "type": "main", "index": 0}]]
+    },
+    "Postgres - Buscar Leads Elegiveis": {
+      "main": [[{"node": "IF - Tem Leads Elegiveis?", "type": "main", "index": 0}]]
+    },
+    "IF - Tem Leads Elegiveis?": {
+      "main": [
+        [{"node": "Code - Split Leads", "type": "main", "index": 0}],
+        [{"node": "Code - Sem Leads Elegiveis", "type": "main", "index": 0}]
+      ]
+    },
+    "Code - Split Leads": {
+      "main": [[{"node": "Code - Montar Mensagem Personalizada", "type": "main", "index": 0}]]
+    },
+    "Code - Montar Mensagem Personalizada": {
+      "main": [[{"node": "IF - Dry Run Mode?", "type": "main", "index": 0}]]
+    },
+    "IF - Dry Run Mode?": {
+      "main": [
+        [{"node": "Code - Simular Envio", "type": "main", "index": 0}],
+        [{"node": "HTTP - Enviar WhatsApp Follow-up", "type": "main", "index": 0}]
+      ]
+    },
+    "Code - Simular Envio": {
+      "main": [[{"node": "Postgres - Registrar Follow-up", "type": "main", "index": 0}]]
+    },
+    "HTTP - Enviar WhatsApp Follow-up": {
+      "main": [[{"node": "Code - Capturar Resultado Envio", "type": "main", "index": 0}]]
+    },
+    "Code - Capturar Resultado Envio": {
+      "main": [[{"node": "Postgres - Registrar Follow-up", "type": "main", "index": 0}]]
+    },
+    "Postgres - Registrar Follow-up": {
+      "main": [[{"node": "Code - Agregar Resultados", "type": "main", "index": 0}]]
+    },
+    "Code - Sem Leads Elegiveis": {
+      "main": [[{"node": "Code - Agregar Resultados", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "tags": [
+    {
+      "name": "backe-followup"
+    }
+  ]
+}

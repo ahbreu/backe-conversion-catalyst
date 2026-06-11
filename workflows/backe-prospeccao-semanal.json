@@ -1,0 +1,235 @@
+{
+  "name": "BACKE.co - Prospeccao Semanal WhatsApp Bruno",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": 1,
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "prosp-001",
+      "name": "Schedule - Toda Segunda 9h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-920, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst weekStart = new Date(now);\nweekStart.setDate(now.getDate() - now.getDay() + 1);\n\nreturn {\n  bruno: {\n    phone: '5561991963278',\n    name: 'Bruno'\n  },\n  search: {\n    location: 'Brasilia, DF, Brasil',\n    lat: -15.7939,\n    lng: -47.8828,\n    radius: 15000,\n    types: 'beauty_salon|hair_care|barber|spa|tattoo_parlor',\n    numResults: 5\n  },\n  weekOf: weekStart.toLocaleDateString('pt-BR'),\n  dryRun: process.env.PROSPECTING_DRY_RUN === 'true'\n};"
+      },
+      "id": "prosp-002",
+      "name": "Code - Config Prospeccao",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-680, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://serpapi.com/search.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "engine",
+              "value": "google_maps"
+            },
+            {
+              "name": "q",
+              "value": "={{ $json.search.types.split('|')[Math.floor(Math.random() * $json.search.types.split('|').length)] }} Brasilia DF"
+            },
+            {
+              "name": "ll",
+              "value": "=@{{ $json.search.lat }},{{ $json.search.lng }}"
+            },
+            {
+              "name": "radius",
+              "value": "={{ $json.search.radius }}"
+            },
+            {
+              "name": "hl",
+              "value": "pt"
+            },
+            {
+              "name": "gl",
+              "value": "br"
+            },
+            {
+              "name": "api_key",
+              "value": "={{ $env.SERPAPI_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "retryOnFail": true,
+          "maxTries": 2,
+          "waitBetweenTries": 3000
+        }
+      },
+      "id": "prosp-003",
+      "name": "HTTP - SerpAPI Google Maps",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-440, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const serpResult = $input.first().json;\nconst config = $('Code - Config Prospeccao').first().json;\nconst rawPlaces = serpResult.local_results || [];\n\nconst typeLabels = {\n  'beauty_salon': 'Salao de Beleza',\n  'hair_care': 'Cabeleireiro',\n  'barber': 'Barbearia',\n  'spa': 'Spa',\n  'tattoo_parlor': 'Estudio de Tatuagem'\n};\n\nconst prospects = [];\nconst seen = new Set();\n\nfor (const place of rawPlaces) {\n  if (prospects.length >= config.search.numResults) break;\n\n  const phone = (place.phone || '').replace(/\\D/g, '');\n  if (!phone || phone.length < 10) continue;\n\n  const key = place.title + '|' + phone;\n  if (seen.has(key)) continue;\n  seen.add(key);\n\n  const types = place.types || [];\n  let tipo = 'Negocio Local';\n  for (const t of types) {\n    if (typeLabels[t]) {\n      tipo = typeLabels[t];\n      break;\n    }\n  }\n\n  const normalizedPhone = phone.startsWith('55') ? phone : '55' + phone;\n\n  prospects.push({\n    json: {\n      nome: place.title,\n      endereco: place.address || 'N/A',\n      telefone: normalizedPhone,\n      tipo: tipo,\n      rating: place.rating || 'N/A',\n      reviews: place.reviews || 0\n    }\n  });\n}\n\nif (prospects.length === 0) {\n  prospects.push({\n    json: {\n      nome: 'Nenhum prospect encontrado',\n      endereco: '-',\n      telefone: '-',\n      tipo: '-',\n      rating: '-',\n      reviews: 0\n    }\n  });\n}\n\nreturn prospects;"
+      },
+      "id": "prosp-004",
+      "name": "Code - Filtrar e Formar Prospects",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-200, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Code - Config Prospeccao').first().json;\nconst prospects = $input.all();\n\nlet message = `*Prospeccao semanal backe.co*\\n`;\nmessage += `Semana de ${config.weekOf}\\n\\n`;\nmessage += `${prospects.length} possiveis clientes p/ automacao WhatsApp:\\n\\n`;\n\nprospects.forEach((p, i) => {\n  const d = p.json;\n  message += `${i + 1}. *${d.nome}*\\n`;\n  message += `   Endereco: ${d.endereco}\\n`;\n  message += `   Telefone: ${d.telefone}\\n`;\n  message += `   Tipo: ${d.tipo}\\n`;\n  if (d.rating !== 'N/A') {\n    message += `   Avaliacao: ${d.rating} (${d.reviews} reviews)\\n`;\n  }\n  message += `\\n`;\n});\n\nmessage += `_Gerado automaticamente pelo workflow n8n_`;\n\nreturn [{\n  json: {\n    brunoPhone: config.bruno.phone,\n    message: message,\n    prospectCount: prospects.length,\n    weekOf: config.weekOf,\n    dryRun: config.dryRun\n  }\n}];"
+      },
+      "id": "prosp-005",
+      "name": "Code - Montar Mensagem Bruno",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [40, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.brunoPhone }}\",\n  \"text\": \"{{ $json.message }}\"\n}",
+        "options": {
+          "retryOnFail": true,
+          "maxTries": 3,
+          "waitBetweenTries": 3000
+        }
+      },
+      "id": "prosp-006",
+      "name": "HTTP - Enviar Lista para Bruno",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\n\nreturn [{\n  json: {\n    status: result.dryRun ? 'dry_run' : 'sent',\n    prospectCount: result.prospectCount,\n    weekOf: result.weekOf,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "prosp-007",
+      "name": "Code - Relatorio Final",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 0]
+    }
+  ],
+  "connections": {
+    "Schedule - Toda Segunda 9h": {
+      "main": [
+        [
+          {
+            "node": "Code - Config Prospeccao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Config Prospeccao": {
+      "main": [
+        [
+          {
+            "node": "HTTP - SerpAPI Google Maps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - SerpAPI Google Maps": {
+      "main": [
+        [
+          {
+            "node": "Code - Filtrar e Formar Prospects",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Filtrar e Formar Prospects": {
+      "main": [
+        [
+          {
+            "node": "Code - Montar Mensagem Bruno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Montar Mensagem Bruno": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Enviar Lista para Bruno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Enviar Lista para Bruno": {
+      "main": [
+        [
+          {
+            "node": "Code - Relatorio Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "prospeccao"
+    },
+    {
+      "name": "whatsapp"
+    },
+    {
+      "name": "bruno"
+    },
+    {
+      "name": "serpapi"
+    }
+  ],
+  "triggerCount": 1,
+  "versionId": "2"
+}

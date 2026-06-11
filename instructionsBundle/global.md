@@ -58,3 +58,20 @@ When a required external service (not the Paperclip API) is unavailable:
 - Stop after the requested output.
 
 If the issue asks for a short answer, the correct completion is a short issue comment. No durable artifact is required.
+
+## Progress Visibility (mandatory for all agents)
+
+Every time you work on an `in_progress` issue, you MUST post a progress comment before exiting the heartbeat. This is required even if you made no changes — explain why.
+
+Minimum comment format:
+```
+## Status: {o que foi feito neste heartbeat}
+
+- Feito: {lista do que avançou}
+- Próximo: {próxima ação concreta}
+- Bloqueio: {se houver — o que impede e quem precisa agir}
+```
+
+If you are blocked, ALWAYS set the issue to `blocked` and name the exact unblock action and responsible party. Never leave an issue `in_progress` if you cannot make progress.
+
+If you are resuming after a gap (no comment from you in the last 2 heartbeats), post a brief re-orientation comment explaining where you are and what comes next.

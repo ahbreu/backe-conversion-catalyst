@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { toast } from "sonner";
 import logoTransparent from "@/assets/logo-backe-transparent.png";
 import {
@@ -9,6 +9,7 @@ import {
   validateContactForm,
 } from "@/lib/leadCapture";
 import { API_URL, assertApiUrl } from "@/config/api";
+import { useSEO } from "@/hooks/useSEO";
 import "../components/BackeLandingReference.css";
 
 const PUBLIC_WHATSAPP_PHONE = String(import.meta.env.VITE_PUBLIC_WHATSAPP_PHONE || "").replace(/\D/g, "");
@@ -64,36 +65,12 @@ const ServicePage = ({
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState(-1);
 
-  useEffect(() => {
-    document.title = title;
-    document.querySelector('meta[name="description"]')?.setAttribute("content", metaDescription);
-    document.querySelector('meta[property="og:title"]')?.setAttribute("content", title);
-    document.querySelector('meta[property="og:description"]')?.setAttribute("content", metaDescription);
-    document.querySelector('meta[name="twitter:title"]')?.setAttribute("content", title);
-    document.querySelector('meta[name="twitter:description"]')?.setAttribute("content", metaDescription);
-
-    let canonical = document.querySelector('link[rel="canonical"]');
-    if (!canonical) {
-      canonical = document.createElement("link");
-      canonical.setAttribute("rel", "canonical");
-      document.head.appendChild(canonical);
-    }
-    canonical.setAttribute("href", canonicalUrl);
-
-    let schemaScript = document.getElementById("schema-markup");
-    if (!schemaScript) {
-      schemaScript = document.createElement("script");
-      schemaScript.id = "schema-markup";
-      schemaScript.type = "application/ld+json";
-      document.head.appendChild(schemaScript);
-    }
-    schemaScript.textContent = JSON.stringify(schemaMarkup);
-
-    return () => {
-      const script = document.getElementById("schema-markup");
-      if (script) script.textContent = "";
-    };
-  }, [title, metaDescription, canonicalUrl, schemaMarkup]);
+  useSEO({
+    title,
+    description: metaDescription,
+    canonicalUrl,
+    schema: schemaMarkup,
+  });
 
   const updateField = (field: keyof ContactLeadForm, value: string) => {
     const nextValue = field === "whatsapp" ? formatPhone(value) : value;

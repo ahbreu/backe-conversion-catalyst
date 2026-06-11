@@ -11,7 +11,7 @@ const spawnProcess = (name, command, args) => {
   const child = spawn(command, args, {
     cwd: process.cwd(),
     env: process.env,
-    shell: false,
+    shell: process.platform === 'win32',
     stdio: ['ignore', 'pipe', 'pipe']
   });
 

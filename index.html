@@ -17,7 +17,7 @@
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://backe.co" />
-    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image" content="/og-image.svg" />
     <meta property="og:locale" content="pt_BR" />
     <meta property="og:site_name" content="BACKE.co" />
 
@@ -27,7 +27,7 @@
       name="twitter:description"
       content="Estratégia que conecta. Criatividade que converte. Agência de marketing digital, branding e performance."
     />
-    <meta name="twitter:image" content="/og-image.png" />
+    <meta name="twitter:image" content="/og-image.svg" />
 
     <link rel="canonical" href="https://backe.co" />
 
@@ -35,14 +35,19 @@
       {
         "@context": "https://schema.org",
         "@type": "LocalBusiness",
+        "@id": "https://backe.co/#localbusiness",
         "name": "BACKE.co",
         "description": "Agência de marketing estratégico e criativo. Tráfego pago, gestão de redes sociais, branding, criação de sites, audiovisual e captação com drone.",
         "url": "https://backe.co",
         "telephone": "+556192240234",
         "email": "contato@backe.co",
-        "areaServed": "Brasil",
+        "areaServed": {
+          "@type": "Country",
+          "name": "Brasil"
+        },
         "priceRange": "$$",
-        "image": "/og-image.png",
+        "image": "/og-image.svg",
+        "logo": "/favicon.ico",
         "sameAs": [
           "https://www.instagram.com/backe.co/"
         ],
@@ -51,7 +56,28 @@
           "addressLocality": "Brasília",
           "addressRegion": "DF",
           "addressCountry": "BR"
-        }
+        },
+        "openingHoursSpecification": [
+          {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+            "opens": "09:00",
+            "closes": "18:00"
+          },
+          {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Saturday"],
+            "opens": "09:00",
+            "closes": "13:00"
+          }
+        ],
+        "geo": {
+          "@type": "GeoCoordinates",
+          "latitude": -15.7934,
+          "longitude": -47.8822
+        },
+        "paymentAccepted": ["PIX", "Cartão de Crédito", "Cartão de Débito", "Boleto", "Transferência Bancária"],
+        "currenciesAccepted": "BRL"
       }
     </script>
 
@@ -61,10 +87,13 @@
         "@type": "Service",
         "serviceType": "Marketing Digital",
         "provider": {
-          "@type": "LocalBusiness",
+          "@type": "Organization",
           "name": "BACKE.co"
         },
-        "areaServed": "Brasil",
+        "areaServed": {
+          "@type": "Country",
+          "name": "Brasil"
+        },
         "description": "Gestão de campanhas no Meta Ads e Google Ads com foco em performance."
       }
     </script>

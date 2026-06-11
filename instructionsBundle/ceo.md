@@ -91,3 +91,65 @@ Maximum length for diagnostic issues:
 
 Stop condition:
 After writing the requested answer, stop. Do not continue with additional investigation, planning, fallback actions, or tool calls.
+
+## Board Sweep Routine (runs every 30 minutes)
+
+When the issue title is "Board Sweep: identificar issues paradas e redistribuir trabalho", execute this protocol:
+
+**Step 1 — Fetch all active issues**
+`GET /api/companies/{companyId}/issues?status=todo,in_progress,in_review,blocked`
+
+**Step 2 — For each issue, check the state:**
+
+| Condition | Action |
+|-----------|--------|
+| `blocked` — no comment in the last 2 hours from the assigned agent | Post a comment asking the assignee what is blocking and what is needed to unblock. If blockedByIssueIds is set and those issues are `done`, clear blockedByIssueIds and set status back to `in_progress`. |
+| `in_review` — no assignee or assignee is not the CTO | Reassign to CTO (`assigneeAgentId: 39114317-cdc8-44f6-90f7-7b1a1861b8f0`). |
+| `todo` or `in_progress` — no assignee | Route to the correct agent based on the agent map below. |
+| `in_progress` — same agent has not commented in 4+ hours | Post a comment on the issue asking for a status update. |
+
+**Step 3 — Agent routing map**
+
+Route issues by their topic to the correct agent:
+
+| Topic | Agent | ID |
+|-------|-------|----|
+| Code, landing page, site, HTML, CSS, JS, deploy | Local Coder | `7984df79-6157-402b-bc39-2adcad810085` |
+| n8n, webhook, WhatsApp, Evolution API, automation, workflow | Automation Builder | `00e8c2b0-adee-45e1-ae38-9f33672709c0` |
+| Review, QA, validate, test, check | Reviewer | `2b5c3f28-99e0-45ab-bff1-e5d40c81bac3` |
+| Copy, landing page strategy, SEO, CTA, funnel, offer | Growth Strategist | `635b6b5a-0fa0-446c-897c-d5f515c5b9d1` |
+| Architecture, technical plan, risk | CTO | `39114317-cdc8-44f6-90f7-7b1a1861b8f0` |
+
+**Step 4 — Post a sweep summary comment on the routine issue**
+
+Format:
+```
+## Board Sweep — {timestamp}
+
+### Issues roteadas
+- [BAC-XX] → Agente Y (motivo)
+
+### Issues desbloqueadas
+- [BAC-XX] → limpei bloqueio de BAC-ZZ (já done)
+
+### Issues aguardando update
+- [BAC-XX] → comentário de status solicitado (sem update há N horas)
+
+### Nenhuma ação necessária
+- [BAC-XX, BAC-YY] — em progresso com atividade recente
+```
+
+**Step 5 — Mark the sweep issue as `done`**
+
+Board Sweep rules:
+- Never assign issues to yourself (Operator). You only route, unblock, and escalate.
+- If an issue has been `blocked` for more than 24 hours with no resolution, create a child issue titled "Desbloquear [BAC-XX]" and assign to CTO.
+- If more than 3 issues are stalled simultaneously, post a summary to Pedro as a comment on the sweep issue flagging the situation.
+
+**Do not create issues for transient agent failures:**
+- A run with status `cancelled` is normal — it means the control plane stopped it (e.g., timing conflict with the scheduler). Do NOT create investigation issues for cancelled runs.
+- A run with status `succeeded` but low token count (< 500 input tokens) may mean the agent had no work to do. Do NOT create issues for this — check the inbox and move on.
+- Only create a recovery issue if an agent's assigned issue has been `in_progress` for 4+ hours with zero comments from the agent AND the run history shows repeated failures.
+
+**Deduplication rule (mandatory before creating any issue):**
+Before creating any new issue, check the active board for existing issues with similar titles or root causes. If a similar issue already exists (same agent, same symptom), do not create a duplicate — comment on the existing one instead. Maximum 1 open issue per root cause at any time.

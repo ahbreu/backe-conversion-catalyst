@@ -25,6 +25,22 @@ const {
   updateLocalLeadN8nFailure,
   updateLocalLeadN8nSuccess
 } = require('./localLeadDb');
+const Redis = require('ioredis');
+const { createFollowupSchedulerWebhook, createTexFollowupInjection } = require('./followup-notifier');
+
+const redisClient = process.env.REDIS_URL
+  ? new Redis(process.env.REDIS_URL, {
+      retryStrategy: (times) => Math.min(times * 50, 2000),
+      maxRetriesPerRequest: 3,
+    })
+  : null;
+
+if (redisClient) {
+  redisClient.on('error', (err) => console.error('Redis error:', err.message));
+  redisClient.on('connect', () => console.log('Redis connected'));
+}
+
+const texFollowup = redisClient ? createTexFollowupInjection(redisClient) : null;
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -136,6 +152,11 @@ app.use(
 
 app.use(express.json({ limit: '64kb' }));
 
+if (redisClient && process.env.FOLLOWUP_SCHEDULER_TOKEN) {
+  app.use(createFollowupSchedulerWebhook(redisClient));
+  log('info', 'followup_scheduler_webhook_mounted');
+}
+
 const getClientIp = (req) => req.ip || req.socket?.remoteAddress || null;
 
 const rateLimitLeads = (req, res, next) => {
@@ -232,6 +253,16 @@ app.get('/api/cloudfy/health', async (req, res) => {
       message: 'Não foi possível verificar o Cloudfy/n8n agora.'
     });
   }
+});
+
+app.get('/api/followup/health', (req, res) => {
+  res.json({
+    ok: true,
+    redisConnected: redisClient ? redisClient.status === 'ready' : false,
+    schedulerEnabled: !!(redisClient && process.env.FOLLOWUP_SCHEDULER_TOKEN),
+    dryRun: isTruthy(process.env.FOLLOWUP_DRY_RUN),
+    windowMinutes: process.env.FOLLOWUP_WINDOW_MINUTES || 10
+  });
 });
 
 app.post('/api/leads', rateLimitLeads, async (req, res) => {
@@ -392,3 +423,9 @@ app.use((error, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);
 });
+
+module.exports = {
+  app,
+  texFollowup,
+  redisClient
+};
