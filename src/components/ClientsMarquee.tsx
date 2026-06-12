@@ -25,7 +25,7 @@ const ClientsMarquee = () => {
             key={`${logo}-${index}`}
             src={`/logos/${logo}`}
             alt={logo.replace(".png", "")}
-            className="clients-marquee-logo h-10 md:h-14 w-auto flex-shrink-0"
+            className="clients-marquee-logo h-[50px] md:h-[70px] w-auto flex-shrink-0"
           />
         ))}
       </div>

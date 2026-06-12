@@ -37,7 +37,7 @@ const services = [
   {
     category: "digital",
     categoryLabel: "Marketing Digital",
-    icon: "ADS",
+    icon: "🎯",
     title: "Tráfego Pago",
     description:
       "Gestão de campanhas no Meta Ads e Google Ads com foco em performance. Segmentamos o público certo, no momento certo, com o criativo certo. Chega de queimar verba.",
@@ -45,7 +45,7 @@ const services = [
   {
     category: "digital",
     categoryLabel: "Marketing Digital",
-    icon: "SOC",
+    icon: "📱",
     title: "Gestão de Redes Sociais",
     description:
       "Calendário editorial estratégico, produção de conteúdo e gestão de comunidade. Transformamos seguidores em clientes com consistência e intenção de marca.",
@@ -53,7 +53,7 @@ const services = [
   {
     category: "estrategia",
     categoryLabel: "Estratégia",
-    icon: "PER",
+    icon: "📊",
     title: "Estratégia & Performance",
     description:
       "Planejamento completo com metas claras, análise de dados, relatórios que fazem sentido e otimização constante para escalar o que realmente funciona.",
@@ -61,7 +61,7 @@ const services = [
   {
     category: "estrategia",
     categoryLabel: "Estratégia",
-    icon: "VEN",
+    icon: "🤝",
     title: "Treinamento & Capacitação de Vendas",
     description:
       "Preparamos seu time comercial com metodologias modernas, scripts de abordagem, técnicas de fechamento e inteligência de mercado para vender mais e melhor.",
@@ -69,7 +69,7 @@ const services = [
   {
     category: "criativo",
     categoryLabel: "Criação & Design",
-    icon: "BRD",
+    icon: "🎨",
     title: "Branding & Identidade Visual",
     description:
       "Criamos identidades visuais completas: logo, paleta, tipografia e brandbook. Sua marca passa a comunicar quem você é antes mesmo de abrir a boca.",
@@ -77,7 +77,7 @@ const services = [
   {
     category: "criativo",
     categoryLabel: "Criação & Design",
-    icon: "DSN",
+    icon: "✨",
     title: "Design Gráfico & Motions",
     description:
       "Peças gráficas para digital e impresso, animações em motion graphics e vídeos animados. Conteúdo visual que comunica com impacto e retém atenção.",
@@ -85,7 +85,7 @@ const services = [
   {
     category: "criativo",
     categoryLabel: "Criação & Design",
-    icon: "WEB",
+    icon: "🌐",
     title: "Criação de Sites & Landing Pages",
     description:
       "Sites institucionais e landing pages otimizadas para conversão. Design responsivo, copy persuasivo e integração com ferramentas de automação e CRM.",
@@ -93,7 +93,7 @@ const services = [
   {
     category: "audiovisual",
     categoryLabel: "Audiovisual",
-    icon: "VID",
+    icon: "🎬",
     title: "Captação Audiovisual",
     description:
       "Produção de vídeos profissionais para campanhas, redes sociais e institucionais. Direção, gravação e edição com padrão de qualidade que eleva sua marca.",
@@ -101,7 +101,7 @@ const services = [
   {
     category: "audiovisual",
     categoryLabel: "Audiovisual",
-    icon: "DRN",
+    icon: "🚁",
     title: "Captação com Drone",
     description:
       "Imagens e vídeos aéreos de alta resolução para imóveis, eventos e campanhas de impacto. Perspectivas únicas que nenhuma câmera convencional consegue entregar.",
