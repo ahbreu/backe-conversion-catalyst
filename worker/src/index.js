@@ -5,6 +5,8 @@ const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const ALLOWED_SERVICE_INTERESTS = new Set([
   "automacao", "sites", "trafego", "gestao", "consultoria", "outro",
   "automation", "website", "traffic", "management", "consulting", "other",
+  "diagnóstico estratégico", "gestão de tráfego", "identidade visual e design gráfico", "captação",
+  "diagnóstico gratuito", "solução personalizada", "dúvida comercial",
 ]);
 const HTML_TAG_PATTERN = /<[^>]*>/g;
 const MAX_BODY_BYTES = 64 * 1024;
@@ -85,8 +87,12 @@ const getCors = (request, env) => {
 
 const securityHeaders = {
   "Content-Type": "application/json; charset=utf-8",
+  "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
   "Referrer-Policy": "no-referrer",
   "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
 };
 
 const jsonResponse = (data, { status = 200, cors = {}, requestId = null } = {}) =>
@@ -124,11 +130,25 @@ const getClientIp = (request) =>
   request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
   null;
 
-const checkRateLimit = (request, env) => {
+const checkRateLimit = async (request, env) => {
   const now = Date.now();
   const windowMs = Number(env.RATE_LIMIT_WINDOW_MS || 60000);
   const max = Number(env.RATE_LIMIT_MAX || 20);
   const key = getClientIp(request) || "unknown";
+  if (env.LEADS_DB) {
+    const bucket = Math.floor(now / windowMs);
+    const bucketKey = await sha256Hex(`${key}:${bucket}`);
+    const expiresAt = new Date((bucket + 2) * windowMs).toISOString();
+    const row = await env.LEADS_DB.prepare(
+      `INSERT INTO rate_limits (bucket_key, request_count, expires_at) VALUES (?, 1, ?)
+       ON CONFLICT(bucket_key) DO UPDATE SET request_count = request_count + 1
+       RETURNING request_count`
+    ).bind(bucketKey, expiresAt).first();
+    if (Number(row?.request_count || 1) > max) {
+      return { ok: false, retryAfterSeconds: Math.ceil(((bucket + 1) * windowMs - now) / 1000) };
+    }
+    return { ok: true };
+  }
   const current = rateLimitStore.get(key);
 
   if (!current || current.resetAt <= now) {
@@ -150,6 +170,24 @@ const checkRateLimit = (request, env) => {
   }
 
   return { ok: true };
+};
+
+const verifyTurnstile = async (body, request, env) => {
+  if (!env.TURNSTILE_SECRET_KEY) return { success: true, disabled: true };
+  const token = requiredString(body.turnstileToken);
+  if (!token || token.length > 2048) return { success: false };
+  const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ secret: env.TURNSTILE_SECRET_KEY, response: token, remoteip: getClientIp(request) }),
+  });
+  const result = await response.json();
+  const allowedHostnames = new Set(getAllowedOrigins(env).map((origin) => {
+    try { return new URL(origin).hostname; } catch { return null; }
+  }).filter(Boolean));
+  return {
+    success: result.success === true && result.action === "lead_form" && allowedHostnames.has(result.hostname),
+  };
 };
 
 const parseJsonBody = async (request) => {
@@ -210,7 +248,6 @@ const buildMessage = (payload) => {
 
 const normalizeLeadPayload = (payload = {}, env, context = {}) => {
   const lead = payload.lead || {};
-  const metadata = payload.metadata || {};
 
   return {
     company: requiredString(payload.company) || env.COMPANY_NAME || "BACKE.co",
@@ -235,9 +272,7 @@ const normalizeLeadPayload = (payload = {}, env, context = {}) => {
       phone: normalizePhone(payload.seller?.phone ?? env.DEFAULT_SELLER_PHONE) || null,
     },
     metadata: {
-      userAgent: nullableString(metadata.userAgent ?? context.userAgent),
       submittedAt: new Date().toISOString(),
-      ip: nullableString(context.ip),
     },
   };
 };
@@ -467,12 +502,21 @@ const markLeadFailed = (env, id, error) => env.LEADS_DB.prepare(
    next_attempt_at = datetime('now', '+' || min(60, (attempts + 1) * 5) || ' minutes'), updated_at = datetime('now') WHERE id = ?`
 ).bind(String(error?.message || "Meta send failed").slice(0, 500), id).run();
 
+const claimLead = async (env, id) => {
+  const result = await env.LEADS_DB.prepare(
+    `UPDATE leads SET status = 'processing', lease_until = datetime('now', '+2 minutes'), updated_at = datetime('now')
+     WHERE id = ? AND (status IN ('received', 'meta_failed') OR (status = 'processing' AND lease_until < datetime('now')))`
+  ).bind(id).run();
+  return Number(result.meta?.changes || 0) === 1;
+};
+
 const retryPendingLeads = async (env) => {
   if (!env.LEADS_DB || !isMetaConfigured(env)) return;
   const { results = [] } = await env.LEADS_DB.prepare(
-    "SELECT id, payload_json FROM leads WHERE status IN ('received', 'meta_failed') AND attempts < 12 AND next_attempt_at <= datetime('now') ORDER BY created_at LIMIT 25"
+    "SELECT id, payload_json FROM leads WHERE (status IN ('received', 'meta_failed') OR (status = 'processing' AND lease_until < datetime('now'))) AND attempts < 12 AND next_attempt_at <= datetime('now') ORDER BY created_at LIMIT 25"
   ).all();
   for (const row of results) {
+    if (!(await claimLead(env, row.id))) continue;
     try {
       const response = await sendLeadToMeta(JSON.parse(row.payload_json), env);
       await markLeadSent(env, row.id, response);
@@ -500,7 +544,7 @@ const handleOptions = (request, env, requestId) => {
 };
 
 const handleLeadPost = async (request, env, cors, requestId) => {
-  const rateLimit = checkRateLimit(request, env);
+  const rateLimit = await checkRateLimit(request, env);
 
   if (!rateLimit.ok) {
     log("warn", "lead_rate_limited", {
@@ -550,6 +594,18 @@ const handleLeadPost = async (request, env, cors, requestId) => {
     });
 
     return jsonResponse({ ok: false, message: DEFAULT_ERROR_MESSAGE }, { status: 400, cors, requestId });
+  }
+
+  let turnstile;
+  try {
+    turnstile = await verifyTurnstile(body, request, env);
+  } catch (error) {
+    log("error", "turnstile_unavailable", { requestId, message: error.message });
+    return jsonResponse({ ok: false, message: DEFAULT_ERROR_MESSAGE }, { status: 503, cors, requestId });
+  }
+  if (!turnstile.success) {
+    log("warn", "turnstile_rejected", { requestId });
+    return jsonResponse({ ok: false, message: "Não foi possível validar o envio. Atualize a página e tente novamente." }, { status: 400, cors, requestId });
   }
 
   const leadPayload = normalizeLeadPayload(body, env, {
@@ -612,6 +668,9 @@ const handleLeadPost = async (request, env, cors, requestId) => {
   }
 
   try {
+    if (!(await claimLead(env, storedLead.id))) {
+      return jsonResponse({ ok: true, message: "Lead is already being processed", duplicate: true }, { status: 200, cors, requestId });
+    }
     const metaResponse = await sendLeadToMeta(leadPayload, env);
     await markLeadSent(env, storedLead.id, metaResponse);
     leadFingerprintStore.set(fingerprint, {
@@ -683,6 +742,23 @@ const handleRequest = async (request, env) => {
     );
   }
 
+  if (url.pathname === "/api/admin/health" && request.method === "GET") {
+    if (!env.ADMIN_HEALTH_TOKEN || request.headers.get("Authorization") !== `Bearer ${env.ADMIN_HEALTH_TOKEN}`) {
+      return jsonResponse({ ok: false, message: "Rota nao encontrada." }, { status: 404, cors, requestId });
+    }
+    const counts = await env.LEADS_DB.prepare(
+      "SELECT status, COUNT(*) AS count FROM leads GROUP BY status"
+    ).all();
+    const exhausted = await env.LEADS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM leads WHERE status = 'meta_failed' AND attempts >= 12"
+    ).first();
+    return jsonResponse({
+      ok: true,
+      leadsByStatus: Object.fromEntries((counts.results || []).map((row) => [row.status, row.count])),
+      exhaustedRetries: Number(exhausted?.count || 0),
+    }, { cors, requestId });
+  }
+
   if (url.pathname === "/api/meta/health" && request.method === "GET") {
     try {
       const meta = await checkMetaHealth(env);
@@ -714,6 +790,13 @@ const handleRequest = async (request, env) => {
 export default {
   fetch: handleRequest,
   scheduled(_controller, env, ctx) {
-    ctx.waitUntil(retryPendingLeads(env));
+    ctx.waitUntil(Promise.all([
+      retryPendingLeads(env),
+      env.LEADS_DB?.batch([
+        env.LEADS_DB.prepare("DELETE FROM rate_limits WHERE expires_at < datetime('now')"),
+      env.LEADS_DB.prepare("DELETE FROM leads WHERE status != 'processing' AND created_at < datetime('now', ?)")
+        .bind(`-${Math.max(1, Number(env.LEAD_RETENTION_DAYS || 180))} days`),
+      ]),
+    ]));
   },
 };

@@ -23,3 +23,14 @@ npx wrangler d1 execute backe-leads --remote --config worker/wrangler.toml --com
 ```
 
 Se a Meta estiver fora do ar, `/api/leads` responde `202` e o lead permanece no D1. Investigue registros em `meta_failed` que atingirem 12 tentativas; eles não são apagados automaticamente.
+
+## Segurança e operação
+
+- Turnstile é validado no Worker com hostname e action esperados.
+- Rate limit é distribuído no D1; o Map em memória é apenas fallback local.
+- O envio Meta usa lease atômico para impedir processamento concorrente.
+- IP e User-Agent não são persistidos.
+- Leads são eliminados automaticamente após 180 dias.
+- `/api/admin/health` retorna apenas contagens e exige `ADMIN_HEALTH_TOKEN`.
+
+Em incidente: desative temporariamente o formulário removendo `VITE_API_URL`, revogue/rotacione secrets no Wrangler, preserve logs necessários, avalie o escopo dos titulares afetados e siga o procedimento aplicável da ANPD.

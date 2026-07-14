@@ -4,6 +4,8 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ALLOWED_SERVICE_INTERESTS = new Set([
   'automacao', 'sites', 'trafego', 'gestao', 'consultoria', 'outro', 'automation',
   'website', 'traffic', 'management', 'consulting', 'other'
+  , 'diagnóstico estratégico', 'gestão de tráfego', 'identidade visual e design gráfico', 'captação',
+  'diagnóstico gratuito', 'solução personalizada', 'dúvida comercial'
 ]);
 const HTML_TAG_PATTERN = /<[^>]*>/g;
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -35,7 +37,6 @@ const buildMessage = (payload) => nullableString(payload.lead?.message ?? payloa
 
 const normalizeLeadPayload = (payload = {}, context = {}) => {
   const lead = payload.lead || {};
-  const metadata = payload.metadata || {};
   return {
     company: requiredString(payload.company) || COMPANY_NAME,
     environment: requiredString(payload.environment) || APP_ENV,
@@ -57,9 +58,7 @@ const normalizeLeadPayload = (payload = {}, context = {}) => {
       phone: normalizePhone(payload.seller?.phone ?? process.env.DEFAULT_SELLER_PHONE) || null
     },
     metadata: {
-      userAgent: nullableString(metadata.userAgent ?? context.userAgent),
-      submittedAt: new Date().toISOString(),
-      ip: nullableString(context.ip)
+      submittedAt: new Date().toISOString()
     }
   };
 };
@@ -143,4 +142,20 @@ const checkMetaHealth = async () => {
   return { configured: true, phoneNumberId: data.id, displayPhoneNumber: data.display_phone_number || null };
 };
 
-module.exports = { checkMetaHealth, hasHoneypotValue, normalizeLeadPayload, normalizePhone, sendLeadWhatsApp, validateLeadPayload };
+const verifyTurnstile = async (token, remoteip) => {
+  if (!process.env.TURNSTILE_SECRET_KEY) return { success: true, disabled: true };
+  if (!token || String(token).length > 2048) return { success: false };
+  const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ secret: process.env.TURNSTILE_SECRET_KEY, response: token, remoteip })
+  });
+  const result = await response.json();
+  const allowedHostnames = new Set(String(process.env.FRONTEND_URL || '').split(',').map((origin) => {
+    try { return new URL(origin).hostname; } catch { return null; }
+  }).filter(Boolean));
+  const hostnameAllowed = process.env.APP_ENV !== 'production' || allowedHostnames.has(result.hostname);
+  return { success: result.success === true && result.action === 'lead_form' && hostnameAllowed };
+};
+
+module.exports = { checkMetaHealth, hasHoneypotValue, normalizeLeadPayload, normalizePhone, sendLeadWhatsApp, validateLeadPayload, verifyTurnstile };

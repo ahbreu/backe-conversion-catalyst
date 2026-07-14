@@ -8,6 +8,7 @@ import {
   validateContactForm,
 } from "@/lib/leadCapture";
 import { API_URL, assertApiUrl } from "@/config/api";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 const faturamentoOptions = [
   "Até R$ 10.000",
@@ -50,6 +51,8 @@ const ContactForm = () => {
   const [fieldErrors, setFieldErrors] = useState<ContactFormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<SubmitStatus>(null);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const updateField = (field: keyof ContactLeadForm, value: string) => {
     setForm((currentForm) => ({ ...currentForm, [field]: value }));
@@ -112,7 +115,7 @@ const ContactForm = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(normalizeLeadPayload(sanitizedForm)),
+        body: JSON.stringify(normalizeLeadPayload(sanitizedForm, turnstileToken)),
       });
 
       const data = await response.json().catch(() => null);
@@ -124,6 +127,8 @@ const ContactForm = () => {
       toast.success(SUCCESS_MESSAGE);
       setSubmitStatus({ type: "success", message: SUCCESS_MESSAGE });
       setForm(initialForm);
+      setTurnstileToken("");
+      setTurnstileResetKey((current) => current + 1);
     } catch (error) {
       const message = error instanceof Error ? error.message : ERROR_MESSAGE;
       toast.error(message || ERROR_MESSAGE);
@@ -314,9 +319,18 @@ const ContactForm = () => {
               </select>
             </div>
 
+            <TurnstileWidget onToken={setTurnstileToken} resetKey={turnstileResetKey} />
+
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Ao enviar, você concorda com o tratamento dos dados para retorno comercial, conforme nossa{" "}
+              <a href="/privacidade.html" className="text-primary underline" target="_blank" rel="noreferrer">
+                Política de Privacidade
+              </a>.
+            </p>
+
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY && !turnstileToken)}
               className="w-full bg-gradient-brand text-primary-foreground font-heading font-semibold text-sm tracking-widest uppercase py-4 rounded-full glow-brand hover:glow-brand-hover transition-all duration-300 hover:scale-[1.02] mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoading ? "Enviando..." : "Quero meu diagnóstico"}

@@ -10,6 +10,7 @@ import {
 } from "@/lib/leadCapture";
 import { API_URL, assertApiUrl } from "@/config/api";
 import ClientsMarquee from "./ClientsMarquee";
+import TurnstileWidget from "./TurnstileWidget";
 import "./BackeLandingReference.css";
 
 const PUBLIC_WHATSAPP_PHONE = String(import.meta.env.VITE_PUBLIC_WHATSAPP_PHONE || "556192240234").replace(/\D/g, "");
@@ -253,6 +254,8 @@ const BackeLandingReference = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const visibleServices = useMemo(
     () =>
@@ -301,6 +304,8 @@ const BackeLandingReference = () => {
     setSubmitMessage(null);
     setIsSubmitted(false);
     setStep(1);
+    setTurnstileToken("");
+    setTurnstileResetKey((current) => current + 1);
   };
 
   const selectInterestAndScroll = (interest: string) => {
@@ -398,7 +403,7 @@ const BackeLandingReference = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(normalizeLeadPayload(sanitizedForm)),
+        body: JSON.stringify(normalizeLeadPayload(sanitizedForm, turnstileToken)),
       });
       const data = await response.json().catch(() => null);
 
@@ -410,6 +415,7 @@ const BackeLandingReference = () => {
       }
 
       setIsSubmitted(true);
+      setTurnstileToken("");
       toast.success("Recebemos sua solicitação. Um especialista da BACKE.co vai entrar em contato em breve.");
     } catch (error) {
       const message =
@@ -710,7 +716,7 @@ const BackeLandingReference = () => {
                       <button className="br-submit-btn" type="button" onClick={handleStepOne}>
                         Continuar
                       </button>
-                      <p className="br-form-legal">Seus dados são protegidos e nunca serão compartilhados.</p>
+                      <p className="br-form-legal">Dados protegidos e usados somente para atender sua solicitação.</p>
                     </div>
                   ) : (
                     <div>
@@ -790,11 +796,12 @@ const BackeLandingReference = () => {
                         {fieldErrors.faturamento && <p className="br-field-error">{fieldErrors.faturamento}</p>}
                       </div>
 
+                      <TurnstileWidget onToken={setTurnstileToken} resetKey={turnstileResetKey} />
                       <div className="br-submit-row">
                         <button className="br-submit-btn br-back-btn" type="button" onClick={() => setStep(1)}>
                           ←
                         </button>
-                        <button className="br-submit-btn" type="submit" disabled={isSubmitting}>
+                        <button className="br-submit-btn" type="submit" disabled={isSubmitting || Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY && !turnstileToken)}>
                           {isSubmitting ? "Enviando..." : "Enviar e garantir meu diagnóstico"}
                         </button>
                       </div>
@@ -813,7 +820,10 @@ const BackeLandingReference = () => {
                           </div>
                         </div>
                       )}
-                      <p className="br-form-legal">Seus dados são protegidos e nunca serão compartilhados.</p>
+                      <p className="br-form-legal">
+                        Usamos seus dados para retornar o contato. Consulte a{" "}
+                        <a href="/privacidade.html" target="_blank" rel="noreferrer">Política de Privacidade</a>.
+                      </p>
                     </div>
                   )}
                 </>

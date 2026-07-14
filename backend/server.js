@@ -18,7 +18,8 @@ const {
   hasHoneypotValue,
   normalizeLeadPayload,
   sendLeadWhatsApp,
-  validateLeadPayload
+  validateLeadPayload,
+  verifyTurnstile
 } = require('./metaWhatsApp');
 const {
   saveLocalLead,
@@ -244,6 +245,14 @@ app.post('/api/leads', rateLimitLeads, async (req, res) => {
       return res.status(400).json({
         ok: false,
         message: 'Não conseguimos enviar sua solicitação agora. Tente novamente ou fale conosco pelo WhatsApp.'
+      });
+    }
+
+    const turnstile = await verifyTurnstile(req.body.turnstileToken, getClientIp(req));
+    if (!turnstile.success) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Não foi possível validar o envio. Atualize a página e tente novamente.'
       });
     }
 

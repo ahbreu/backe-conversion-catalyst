@@ -44,6 +44,7 @@ export type LeadPayload = {
     idempotencyKey?: string;
   };
   website: string;
+  turnstileToken: string;
 };
 
 export type ContactFormErrors = Partial<Record<keyof ContactLeadForm, string>>;
@@ -159,7 +160,7 @@ export const validateContactForm = (form: ContactLeadForm): ContactFormValidatio
   };
 };
 
-export const normalizeLeadPayload = (form: ContactLeadForm): LeadPayload => {
+export const normalizeLeadPayload = (form: ContactLeadForm, turnstileToken = ""): LeadPayload => {
   const messageParts = [
     form.nicho ? `Nicho da empresa: ${form.nicho}` : null,
     form.faturamento ? `Faturamento mensal: ${form.faturamento}` : null,
@@ -190,5 +191,6 @@ export const normalizeLeadPayload = (form: ContactLeadForm): LeadPayload => {
       submittedAt: new Date().toISOString(),
     },
     website: form.website,
+    turnstileToken,
   };
 };

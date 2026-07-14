@@ -45,6 +45,7 @@ jobs:
           VITE_APP_ENV: production
           VITE_COMPANY_NAME: BACKE.co
           VITE_MAINTENANCE_MODE: "false"
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
           VITE_PUBLIC_WHATSAPP_PHONE: ${{ vars.VITE_PUBLIC_WHATSAPP_PHONE }}
           VITE_PUBLIC_WHATSAPP_MESSAGE: ${{ vars.VITE_PUBLIC_WHATSAPP_MESSAGE }}
         run: npm run build
