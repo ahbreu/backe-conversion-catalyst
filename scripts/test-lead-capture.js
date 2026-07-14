@@ -1,12 +1,4 @@
-const isProduction = ['production', 'prod'].includes((process.env.APP_ENV || 'sandbox').toLowerCase());
-const webhookUrl = isProduction
-  ? process.env.N8N_LEAD_CAPTURE_WEBHOOK_PROD_URL
-  : process.env.N8N_LEAD_CAPTURE_WEBHOOK_TEST_URL;
-
-if (!webhookUrl) {
-  console.error('Missing N8N lead capture webhook URL. Check .env.local.');
-  process.exit(1);
-}
+const webhookUrl = `${String(process.env.VITE_API_URL || 'http://localhost:3001').replace(/\/+$/, '')}/api/leads`;
 
 const payload = {
   company: 'BACKE.co',
@@ -18,16 +10,16 @@ const payload = {
   utm: {
     source: 'local',
     medium: 'test',
-    campaign: 'cloudfy-sandbox',
+    campaign: 'meta-whatsapp',
     term: null,
     content: null
   },
   lead: {
     name: 'Teste BACKE',
     email: 'teste@backe.co',
-    phone: '55XXXXXXXXXXX',
-    message: 'Teste de integração do site com n8n',
-    serviceInterest: 'Automação de atendimento',
+    phone: '5511999999999',
+    message: 'Teste de integração do site com a API oficial do WhatsApp',
+    serviceInterest: 'automacao',
     companyName: 'BACKE.co'
   },
   seller: {
@@ -53,6 +45,6 @@ const data = await response.json().catch(() => null);
 console.log(JSON.stringify(data, null, 2));
 
 if (!response.ok || data?.ok !== true) {
-  console.error('Cloudfy/n8n lead capture test failed.');
+  console.error('Lead capture test failed.');
   process.exit(1);
 }

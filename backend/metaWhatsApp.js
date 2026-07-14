@@ -1,0 +1,146 @@
+const COMPANY_NAME = process.env.COMPANY_NAME || 'BACKE.co';
+const APP_ENV = process.env.APP_ENV || 'sandbox';
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ALLOWED_SERVICE_INTERESTS = new Set([
+  'automacao', 'sites', 'trafego', 'gestao', 'consultoria', 'outro', 'automation',
+  'website', 'traffic', 'management', 'consulting', 'other'
+]);
+const HTML_TAG_PATTERN = /<[^>]*>/g;
+const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+const stripHtml = (value) => String(value ?? '').replace(HTML_TAG_PATTERN, '').trim();
+const nullableString = (value) => stripHtml(value) || null;
+const requiredString = (value) => stripHtml(value);
+
+const normalizePhone = (value) => {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (!digits) return '';
+  return (digits.length === 10 || digits.length === 11) && !digits.startsWith('55')
+    ? `55${digits}`
+    : digits;
+};
+
+const normalizeUtm = (utm = {}) => ({
+  source: nullableString(utm.source ?? utm.utm_source),
+  medium: nullableString(utm.medium ?? utm.utm_medium),
+  campaign: nullableString(utm.campaign ?? utm.utm_campaign),
+  term: nullableString(utm.term ?? utm.utm_term),
+  content: nullableString(utm.content ?? utm.utm_content)
+});
+
+const buildMessage = (payload) => nullableString(payload.lead?.message ?? payload.message) ||
+  [payload.nicho ? `Nicho da empresa: ${payload.nicho}` : null,
+    payload.faturamento ? `Faturamento mensal: ${payload.faturamento}` : null]
+    .filter(Boolean).join('\n') || null;
+
+const normalizeLeadPayload = (payload = {}, context = {}) => {
+  const lead = payload.lead || {};
+  const metadata = payload.metadata || {};
+  return {
+    company: requiredString(payload.company) || COMPANY_NAME,
+    environment: requiredString(payload.environment) || APP_ENV,
+    source: requiredString(payload.source) || 'website',
+    formId: requiredString(payload.formId) || context.formId || 'website-contact-form',
+    pageUrl: requiredString(payload.pageUrl) || context.pageUrl || '',
+    pageTitle: requiredString(payload.pageTitle) || context.pageTitle || '',
+    utm: normalizeUtm(payload.utm || {}),
+    lead: {
+      name: requiredString(lead.name ?? payload.nome ?? payload.name),
+      email: nullableString(lead.email ?? payload.email)?.toLowerCase() || null,
+      phone: normalizePhone(lead.phone ?? payload.whatsapp ?? payload.phone),
+      message: buildMessage(payload),
+      serviceInterest: nullableString(lead.serviceInterest ?? payload.serviceInterest ?? payload.interesse),
+      companyName: nullableString(lead.companyName ?? payload.empresa ?? payload.companyName)
+    },
+    seller: {
+      name: nullableString(payload.seller?.name ?? process.env.DEFAULT_SELLER_NAME),
+      phone: normalizePhone(payload.seller?.phone ?? process.env.DEFAULT_SELLER_PHONE) || null
+    },
+    metadata: {
+      userAgent: nullableString(metadata.userAgent ?? context.userAgent),
+      submittedAt: new Date().toISOString(),
+      ip: nullableString(context.ip)
+    }
+  };
+};
+
+const hasHoneypotValue = (payload = {}) =>
+  ['website', 'url', 'companyWebsite', 'contact_me_by_fax_only'].some((field) => requiredString(payload[field]));
+
+const validateLeadPayload = (payload) => {
+  if (!payload.lead.name) return { ok: false, message: 'Informe seu nome.' };
+  if (!payload.lead.phone) return { ok: false, message: 'Informe seu WhatsApp.' };
+  if (payload.lead.email && !EMAIL_PATTERN.test(payload.lead.email)) return { ok: false, message: 'Informe um email válido.' };
+  if (payload.lead.phone.length < 10 || payload.lead.phone.length > 15) return { ok: false, message: 'Informe um WhatsApp válido.' };
+  if (payload.lead.name.length > 120 || (payload.lead.companyName?.length || 0) > 120 ||
+      (payload.lead.email?.length || 0) > 255) return { ok: false, message: 'Campos de texto excedem o limite permitido.' };
+  if (payload.lead.serviceInterest && !ALLOWED_SERVICE_INTERESTS.has(payload.lead.serviceInterest.toLowerCase())) {
+    return { ok: false, message: 'Selecione uma opção válida para o serviço de interesse.' };
+  }
+  return { ok: true };
+};
+
+const buildTemplateRequest = (lead) => ({
+  messaging_product: 'whatsapp',
+  recipient_type: 'individual',
+  to: lead.lead.phone,
+  type: 'template',
+  template: {
+    name: process.env.META_WHATSAPP_TEMPLATE_NAME,
+    language: { code: process.env.META_WHATSAPP_TEMPLATE_LANGUAGE || 'pt_BR' },
+    components: [{
+      type: 'body',
+      parameters: [
+        { type: 'text', text: lead.lead.name },
+        { type: 'text', text: lead.lead.serviceInterest || 'atendimento e automação' }
+      ]
+    }]
+  }
+});
+
+const sendLeadWhatsApp = async (leadPayload) => {
+  const token = process.env.META_WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
+  const template = process.env.META_WHATSAPP_TEMPLATE_NAME;
+  if (!token || !phoneNumberId || !template) throw new Error('Meta WhatsApp is not configured.');
+  const version = process.env.META_GRAPH_API_VERSION || 'v23.0';
+  const attempts = Math.max(1, Number(process.env.META_RETRY_ATTEMPTS || 3));
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(`https://graph.facebook.com/${version}/${phoneNumberId}/messages`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildTemplateRequest(leadPayload)),
+        signal: AbortSignal.timeout(Number(process.env.META_REQUEST_TIMEOUT_MS || 10000))
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        const error = new Error('Meta WhatsApp request failed.');
+        error.status = response.status;
+        throw error;
+      }
+      return { ok: true, messageId: data?.messages?.[0]?.id || null };
+    } catch (error) {
+      lastError = error;
+      if (attempt >= attempts || (error.status && !RETRYABLE_STATUS_CODES.has(error.status))) throw error;
+      await new Promise((resolve) => setTimeout(resolve, Number(process.env.META_RETRY_BASE_DELAY_MS || 500) * attempt));
+    }
+  }
+  throw lastError;
+};
+
+const checkMetaHealth = async () => {
+  const token = process.env.META_WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
+  if (!token || !phoneNumberId) throw new Error('Meta WhatsApp is not configured.');
+  const version = process.env.META_GRAPH_API_VERSION || 'v23.0';
+  const response = await fetch(`https://graph.facebook.com/${version}/${phoneNumberId}?fields=id,display_phone_number`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!response.ok) { const error = new Error('Meta WhatsApp healthcheck failed.'); error.status = response.status; throw error; }
+  const data = await response.json();
+  return { configured: true, phoneNumberId: data.id, displayPhoneNumber: data.display_phone_number || null };
+};
+
+module.exports = { checkMetaHealth, hasHoneypotValue, normalizeLeadPayload, normalizePhone, sendLeadWhatsApp, validateLeadPayload };

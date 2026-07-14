@@ -28,12 +28,21 @@ jobs:
         shell: bash
         run: |
           if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then
-            echo "::warning title=Cloudflare deploy skipped::Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in Settings > Secrets and variables > Actions to enable Worker deploys."
+            echo "::warning title=Cloudflare deploy skipped::Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID after provisioning production."
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Apply D1 migrations
+        if: steps.cloudflare.outputs.enabled == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          command: d1 migrations apply backe-leads --remote
 
       - name: Deploy Worker
         if: steps.cloudflare.outputs.enabled == 'true'

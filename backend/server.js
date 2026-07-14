@@ -14,34 +14,17 @@ const crypto = require('crypto');
 ].forEach((envPath) => dotenv.config({ path: envPath, override: true }));
 
 const {
-  checkCloudfyHealth,
+  checkMetaHealth,
   hasHoneypotValue,
   normalizeLeadPayload,
-  submitLeadToN8n,
+  sendLeadWhatsApp,
   validateLeadPayload
-} = require('./cloudfy');
+} = require('./metaWhatsApp');
 const {
   saveLocalLead,
-  updateLocalLeadN8nFailure,
-  updateLocalLeadN8nSuccess
+  updateLocalLeadAutomationFailure,
+  updateLocalLeadAutomationSuccess
 } = require('./localLeadDb');
-const Redis = require('ioredis');
-const { createFollowupSchedulerWebhook, createTexFollowupInjection } = require('./followup-notifier');
-
-const redisClient = process.env.REDIS_URL
-  ? new Redis(process.env.REDIS_URL, {
-      retryStrategy: (times) => Math.min(times * 50, 2000),
-      maxRetriesPerRequest: 3,
-    })
-  : null;
-
-if (redisClient) {
-  redisClient.on('error', (err) => console.error('Redis error:', err.message));
-  redisClient.on('connect', () => console.log('Redis connected'));
-}
-
-const texFollowup = redisClient ? createTexFollowupInjection(redisClient) : null;
-
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DATA_DIR = path.join(__dirname, 'data');
@@ -152,11 +135,6 @@ app.use(
 
 app.use(express.json({ limit: '64kb' }));
 
-if (redisClient && process.env.FOLLOWUP_SCHEDULER_TOKEN) {
-  app.use(createFollowupSchedulerWebhook(redisClient));
-  log('info', 'followup_scheduler_webhook_mounted');
-}
-
 const getClientIp = (req) => req.ip || req.socket?.remoteAddress || null;
 
 const rateLimitLeads = (req, res, next) => {
@@ -193,7 +171,7 @@ const rateLimitLeads = (req, res, next) => {
   return next();
 };
 
-const persistLead = async (leadPayload, n8nResponse) => {
+const persistLead = async (leadPayload, automationResponse) => {
   if (!LOCAL_LEAD_LOG_ENABLED) {
     return null;
   }
@@ -202,9 +180,9 @@ const persistLead = async (leadPayload, n8nResponse) => {
 
   const leadRecord = {
     ...leadPayload,
-    n8n: {
-      ok: n8nResponse?.ok === true,
-      leadReceived: n8nResponse?.leadReceived === true
+    automation: {
+      ok: automationResponse?.ok === true,
+      messageId: automationResponse?.messageId || null
     },
     receivedAt: new Date().toISOString()
   };
@@ -230,19 +208,19 @@ app.get('/api/local-leads/health', (req, res) => {
   });
 });
 
-app.get('/api/cloudfy/health', async (req, res) => {
+app.get('/api/meta/health', async (req, res) => {
   try {
-    const health = await checkCloudfyHealth();
-    log('info', 'cloudfy_health_ok', {
+    const health = await checkMetaHealth();
+    log('info', 'meta_health_ok', {
       requestId: req.id
     });
 
     return res.json({
       ok: true,
-      cloudfy: health
+      meta: health
     });
   } catch (error) {
-    log('error', 'cloudfy_health_failed', {
+    log('error', 'meta_health_failed', {
       requestId: req.id,
       message: error.message,
       status: error.status
@@ -250,19 +228,9 @@ app.get('/api/cloudfy/health', async (req, res) => {
 
     return res.status(502).json({
       ok: false,
-      message: 'Não foi possível verificar o Cloudfy/n8n agora.'
+      message: 'Não foi possível verificar a API do WhatsApp agora.'
     });
   }
-});
-
-app.get('/api/followup/health', (req, res) => {
-  res.json({
-    ok: true,
-    redisConnected: redisClient ? redisClient.status === 'ready' : false,
-    schedulerEnabled: !!(redisClient && process.env.FOLLOWUP_SCHEDULER_TOKEN),
-    dryRun: isTruthy(process.env.FOLLOWUP_DRY_RUN),
-    windowMinutes: process.env.FOLLOWUP_WINDOW_MINUTES || 10
-  });
 });
 
 app.post('/api/leads', rateLimitLeads, async (req, res) => {
@@ -340,38 +308,54 @@ app.post('/api/leads', rateLimitLeads, async (req, res) => {
       }
     }
 
+    const metaConfigured = Boolean(
+      process.env.META_WHATSAPP_ACCESS_TOKEN &&
+      process.env.META_WHATSAPP_PHONE_NUMBER_ID &&
+      process.env.META_WHATSAPP_TEMPLATE_NAME
+    );
+
+    if (!metaConfigured && localLead) {
+      leadFingerprintStore.set(fingerprint, { expiresAt: now + LEAD_IDEMPOTENCY_WINDOW_MS });
+      return res.status(202).json({
+        ok: true,
+        message: 'Lead saved. Automation is awaiting activation.',
+        localLeadId: localLead.id,
+        automationStatus: 'received'
+      });
+    }
+
     try {
-      const n8nResponse = await submitLeadToN8n(leadPayload);
+      const metaResponse = await sendLeadWhatsApp(leadPayload);
       leadFingerprintStore.set(fingerprint, {
         expiresAt: now + LEAD_IDEMPOTENCY_WINDOW_MS
       });
 
       if (localLead) {
-        updateLocalLeadN8nSuccess(localLead.id, n8nResponse);
+        updateLocalLeadAutomationSuccess(localLead.id, metaResponse);
       }
 
-      await persistLead(leadPayload, n8nResponse);
-      log('info', 'lead_forwarded_to_n8n', {
+      await persistLead(leadPayload, metaResponse);
+      log('info', 'lead_sent_to_meta', {
         requestId: req.id,
         formId: leadPayload.formId,
         localLeadId: localLead?.id,
-        n8nLeadReceived: n8nResponse?.leadReceived === true
+        metaMessageId: metaResponse?.messageId || null
       });
 
       return res.status(201).json({
         ok: true,
         message: 'Lead sent successfully',
         localLeadId: localLead?.id || null,
-        automationStatus: 'n8n_forwarded'
+        automationStatus: 'meta_sent'
       });
     } catch (error) {
       if (localLead) {
-        updateLocalLeadN8nFailure(localLead.id, error);
+        updateLocalLeadAutomationFailure(localLead.id, error);
         leadFingerprintStore.set(fingerprint, {
           expiresAt: now + LEAD_IDEMPOTENCY_WINDOW_MS
         });
 
-        log('error', 'lead_saved_locally_n8n_failed', {
+        log('error', 'lead_saved_locally_meta_failed', {
           requestId: req.id,
           localLeadId: localLead.id,
           message: error.message,
@@ -382,7 +366,7 @@ app.post('/api/leads', rateLimitLeads, async (req, res) => {
           ok: true,
           message: 'Lead saved locally. Automation is pending.',
           localLeadId: localLead.id,
-          automationStatus: 'n8n_failed'
+          automationStatus: 'meta_failed'
         });
       }
 
@@ -425,7 +409,5 @@ app.listen(PORT, () => {
 });
 
 module.exports = {
-  app,
-  texFollowup,
-  redisClient
+  app
 };

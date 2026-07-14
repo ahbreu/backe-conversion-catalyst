@@ -1,135 +1,60 @@
 # BACKE Creative
 
-Landing page institucional da BACKE Creative, feita com Vite, React, TypeScript e Tailwind CSS.
+Landing page institucional da BACKE Creative, focada em conversão e captura confiável de leads.
 
-## Scripts
+## Stack
 
-- `npm install`: instala as dependencias
-- `npm run dev`: sobe o ambiente local
-- `npm run build`: gera a versao de producao em `dist`
+- Vite, React 18, TypeScript e Tailwind no frontend.
+- Express para desenvolvimento local.
+- Cloudflare Worker + D1 + Cron Trigger em produção.
+- API oficial do WhatsApp Cloud da Meta para contato automático.
+- GitHub Pages para hospedar o site.
 
-## Backend
+## Desenvolvimento
 
-O backend Express roda localmente na porta `3001` e recebe leads em `/api/leads`.
-
-1. Copie `.env.example` para `.env.local` ou `backend/.env.example` para `backend/.env`.
-2. Ajuste as variaveis se necessario:
-   - `APP_ENV=sandbox`
-   - `PORT=3001`
-   - `FRONTEND_URL=http://localhost:8080`
-   - `N8N_LEAD_CAPTURE_WEBHOOK_TEST_URL=https://groundedlungfish-n8n.cloudfy.live/webhook-test/sandbox/backe/lead-capture`
-3. Inicie o servidor:
-
-```sh
-node backend/server.js
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
 ```
 
-Endpoint disponivel:
+Frontend: `http://localhost:8080`. Backend: `http://localhost:3001`.
 
-- `POST /api/leads`
-- `GET /api/local-leads/health`
-- `GET /api/cloudfy/health`
-
-O backend valida, normaliza e encaminha leads para o webhook sandbox do Cloudfy/n8n. Para gravar um log local em `backend/data/leads.jsonl`, que esta ignorado pelo Git, defina `LOCAL_LEAD_LOG_ENABLED=true`.
-
-Por padrao, todo lead valido tambem e salvo antes no banco local SQLite. No Windows, o arquivo fica em `%LOCALAPPDATA%\BACKE.co\lead-db\leads.sqlite`, fora do Git e fora da pasta sincronizada do projeto.
-
-Variaveis locais do banco:
-
-```sh
-LOCAL_LEAD_DB_ENABLED=true
-LOCAL_LEAD_DB_PATH=
-```
-
-Status possiveis no SQLite local:
-
-- `received`: lead salvo localmente antes da automacao.
-- `n8n_forwarded`: lead salvo localmente e enviado ao n8n.
-- `n8n_failed`: lead salvo localmente, mas o envio ao n8n falhou e precisa de reprocessamento.
-
-Para listar os ultimos leads locais:
-
-```sh
-npm run leads:local
-```
-
-## Cloudflare Worker para producao
-
-Para evitar um backend pago em producao, o repositorio tambem inclui uma Worker em [worker/](./worker). Ela expoe as mesmas rotas principais do backend:
+Rotas do backend:
 
 - `POST /api/leads`
 - `GET /health`
-- `GET /api/cloudfy/health`
+- `GET /api/local-leads/health`
+- `GET /api/meta/health`
 
-A Worker valida o lead, bloqueia origens fora do `FRONTEND_URL` e encaminha para o webhook privado do Cloudfy/n8n configurado como secret da Cloudflare.
+No ambiente local, leads são persistidos em SQLite antes do envio para a Meta. O caminho padrão fica fora do repositório, em `~/.backe/lead-db/leads.sqlite` no Linux/macOS.
 
-Configure os secrets da Worker:
+Estados do pipeline: `received`, `meta_sent` e `meta_failed`. Uma indisponibilidade da Meta não transforma um lead persistido em erro para o visitante.
 
-```sh
-npx wrangler secret put N8N_LEAD_CAPTURE_WEBHOOK_URL --config worker/wrangler.toml
-npx wrangler secret put N8N_HEALTHCHECK_URL --config worker/wrangler.toml
-```
+## Produção
 
-Deploy manual:
+O site permanece no GitHub Pages. A variável do repositório `VITE_API_URL` deve apontar para o Worker apenas depois que D1, secrets, template e healthchecks estiverem validados.
 
-```sh
-npm run worker:deploy
-```
+Veja:
 
-Depois que a Cloudflare gerar a URL publica da Worker, configure no GitHub:
+- [Worker e configuração](./worker/README.md)
+- [Runbook de produção](./docs/production-cloudflare-worker.md)
 
-```txt
-VITE_API_URL=https://backe-lead-proxy.SEUSUBDOMINIO.workers.dev
-```
+Segredos obrigatórios no Worker:
 
-O passo a passo completo fica em [worker/README.md](./worker/README.md) e no runbook de producao [docs/production-cloudflare-worker.md](./docs/production-cloudflare-worker.md).
+- `META_WHATSAPP_ACCESS_TOKEN`
+- `META_WHATSAPP_PHONE_NUMBER_ID`
 
-## Cloudfy/n8n
+O template e idioma são configurações públicas no `worker/wrangler.toml`. Tokens e PII nunca devem ser versionados ou expostos como `VITE_*`.
 
-Documentacao completa: [docs/cloudfy-n8n-integration.md](./docs/cloudfy-n8n-integration.md).
+## Verificação
 
-Workflow n8n versionado: [workflows/backe-lead-whatsapp.json](./workflows/backe-lead-whatsapp.json).
-
-Guia de configuracao do workflow, PostgreSQL Cloudfy e Evolution API: [docs/n8n-backe-lead-whatsapp.md](./docs/n8n-backe-lead-whatsapp.md).
-
-Scripts de teste:
-
-```sh
+```bash
+npm run lint
 npm run test:backend
-npm run test:cloudfy
+npm run build
+npm run test:meta
 npm run test:lead
 ```
 
-## Estrutura principal
-
-- `src/App.tsx`: entrada da aplicacao
-- `src/pages/Index.tsx`: composicao da landing page
-- `src/components/*Section.tsx`: secoes visuais da pagina
-- `src/components/ui/sonner.tsx`: toast global
-
-## Deploy no GitHub Pages
-
-O repositorio ja esta preparado para deploy automatico pelo workflow [deploy-pages.yml](./.github/workflows/deploy-pages.yml).
-
-1. Faca push na branch `main`.
-2. No GitHub, abra `Settings > Pages`.
-3. Em `Source`, selecione `GitHub Actions`.
-4. Aguarde o workflow `Deploy GitHub Pages` terminar.
-
-Para o formulario funcionar em producao, configure tambem a variavel de repositorio `VITE_API_URL` apontando para a Worker publicada.
-
-### Base path
-
-O build usa a variavel `VITE_BASE_PATH`.
-
-- Sem configurar nada, o workflow publica no caminho padrao do GitHub Pages do repositorio, como `/backe-conversion-catalyst/`.
-- Para dominio proprio, configure a variavel do repositorio `VITE_BASE_PATH` com `/`.
-
-## Dominio personalizado
-
-Se o site for usar dominio proprio:
-
-1. Crie a variavel `VITE_BASE_PATH` com o valor `/`.
-2. Crie `PAGES_CNAME` com o dominio final, por exemplo `backe.com.br`.
-3. Em `Settings > Pages`, informe o dominio personalizado.
-4. Ajuste os registros DNS no provedor do dominio conforme instrucoes do GitHub Pages.
+Os dois últimos testes exigem backend/Worker configurado e em execução.

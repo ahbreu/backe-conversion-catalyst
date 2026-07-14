@@ -346,7 +346,7 @@ const shouldRetryRequest = (error) => {
 };
 
 const requestJsonOnce = async (url, env, options = {}) => {
-  const timeoutMs = Number(env.N8N_REQUEST_TIMEOUT_MS || 10000);
+  const timeoutMs = Number(env.META_REQUEST_TIMEOUT_MS || 10000);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -364,7 +364,7 @@ const requestJsonOnce = async (url, env, options = {}) => {
     const data = await parseJsonResponse(response);
 
     if (!response.ok || data?.ok === false) {
-      const error = new Error("Cloudfy/n8n request failed.");
+      const error = new Error("External API request failed.");
       error.status = response.status;
       error.response = data;
       throw error;
@@ -381,8 +381,8 @@ const requestJson = async (url, env, options = {}) => {
     throw new Error("Webhook URL is not configured.");
   }
 
-  const attempts = Math.max(1, Number(env.N8N_RETRY_ATTEMPTS || 2));
-  const baseDelayMs = Number(env.N8N_RETRY_BASE_DELAY_MS || 500);
+  const attempts = Math.max(1, Number(env.META_RETRY_ATTEMPTS || 3));
+  const baseDelayMs = Number(env.META_RETRY_BASE_DELAY_MS || 500);
   let lastError;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -402,36 +402,86 @@ const requestJson = async (url, env, options = {}) => {
   throw lastError;
 };
 
-const getLeadWebhookUrl = (env) => {
-  if (env.N8N_LEAD_CAPTURE_WEBHOOK_URL) {
-    return env.N8N_LEAD_CAPTURE_WEBHOOK_URL;
-  }
-
-  return isProductionEnvironment(env)
-    ? env.N8N_LEAD_CAPTURE_WEBHOOK_PROD_URL
-    : env.N8N_LEAD_CAPTURE_WEBHOOK_TEST_URL;
+const getMetaUrl = (env) => {
+  if (!env.META_WHATSAPP_PHONE_NUMBER_ID) throw new Error("Meta WhatsApp is not configured.");
+  return `https://graph.facebook.com/${env.META_GRAPH_API_VERSION || "v23.0"}/${env.META_WHATSAPP_PHONE_NUMBER_ID}`;
 };
 
-const getHealthcheckUrl = (env) => {
-  if (env.N8N_HEALTHCHECK_URL) {
-    return env.N8N_HEALTHCHECK_URL;
-  }
+const isMetaConfigured = (env) => Boolean(
+  env.META_WHATSAPP_ACCESS_TOKEN &&
+  env.META_WHATSAPP_PHONE_NUMBER_ID &&
+  env.META_WHATSAPP_TEMPLATE_NAME
+);
 
-  return isProductionEnvironment(env)
-    ? env.N8N_HEALTHCHECK_PROD_URL
-    : env.N8N_HEALTHCHECK_TEST_URL;
+const buildMetaTemplateRequest = (leadPayload, env) => {
+  if (!env.META_WHATSAPP_TEMPLATE_NAME) throw new Error("Meta WhatsApp template is not configured.");
+  return {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: leadPayload.lead.phone,
+    type: "template",
+    template: {
+      name: env.META_WHATSAPP_TEMPLATE_NAME,
+      language: { code: env.META_WHATSAPP_TEMPLATE_LANGUAGE || "pt_BR" },
+      components: [{ type: "body", parameters: [
+        { type: "text", text: leadPayload.lead.name },
+        { type: "text", text: leadPayload.lead.serviceInterest || "atendimento e automacao" },
+      ] }],
+    },
+  };
 };
 
-const submitLeadToN8n = (leadPayload, env) =>
-  requestJson(getLeadWebhookUrl(env), env, {
+const sendLeadToMeta = async (leadPayload, env) => {
+  if (!env.META_WHATSAPP_ACCESS_TOKEN) throw new Error("Meta WhatsApp is not configured.");
+  const data = await requestJson(`${getMetaUrl(env)}/messages`, env, {
     method: "POST",
-    body: JSON.stringify(leadPayload),
+    headers: { Authorization: `Bearer ${env.META_WHATSAPP_ACCESS_TOKEN}` },
+    body: JSON.stringify(buildMetaTemplateRequest(leadPayload, env)),
   });
+  return { ok: true, messageId: data?.messages?.[0]?.id || null };
+};
 
-const checkCloudfyHealth = (env) =>
-  requestJson(getHealthcheckUrl(env), env, {
+const checkMetaHealth = (env) => {
+  if (!env.META_WHATSAPP_ACCESS_TOKEN) throw new Error("Meta WhatsApp is not configured.");
+  return requestJson(`${getMetaUrl(env)}?fields=id,display_phone_number`, env, {
     method: "GET",
+    headers: { Authorization: `Bearer ${env.META_WHATSAPP_ACCESS_TOKEN}` },
   });
+};
+
+const saveLead = async (env, fingerprint, leadPayload) => {
+  if (!env.LEADS_DB) throw new Error("LEADS_DB binding is required.");
+  await env.LEADS_DB.prepare(
+    `INSERT OR IGNORE INTO leads (idempotency_key, status, payload_json, attempts, next_attempt_at)
+     VALUES (?, 'received', ?, 0, datetime('now'))`
+  ).bind(fingerprint, JSON.stringify(leadPayload)).run();
+  return env.LEADS_DB.prepare("SELECT id, status FROM leads WHERE idempotency_key = ?").bind(fingerprint).first();
+};
+
+const markLeadSent = (env, id, response) => env.LEADS_DB.prepare(
+  "UPDATE leads SET status = 'meta_sent', meta_message_id = ?, error_message = NULL, updated_at = datetime('now') WHERE id = ?"
+).bind(response.messageId, id).run();
+
+const markLeadFailed = (env, id, error) => env.LEADS_DB.prepare(
+  `UPDATE leads SET status = 'meta_failed', attempts = attempts + 1, error_message = ?,
+   next_attempt_at = datetime('now', '+' || min(60, (attempts + 1) * 5) || ' minutes'), updated_at = datetime('now') WHERE id = ?`
+).bind(String(error?.message || "Meta send failed").slice(0, 500), id).run();
+
+const retryPendingLeads = async (env) => {
+  if (!env.LEADS_DB || !isMetaConfigured(env)) return;
+  const { results = [] } = await env.LEADS_DB.prepare(
+    "SELECT id, payload_json FROM leads WHERE status IN ('received', 'meta_failed') AND attempts < 12 AND next_attempt_at <= datetime('now') ORDER BY created_at LIMIT 25"
+  ).all();
+  for (const row of results) {
+    try {
+      const response = await sendLeadToMeta(JSON.parse(row.payload_json), env);
+      await markLeadSent(env, row.id, response);
+    } catch (error) {
+      await markLeadFailed(env, row.id, error);
+      log("error", "lead_retry_failed", { leadId: row.id, message: error.message, status: error.status });
+    }
+  }
+};
 
 const handleOptions = (request, env, requestId) => {
   const cors = getCors(request, env);
@@ -541,34 +591,57 @@ const handleLeadPost = async (request, env, cors, requestId) => {
 
   leadPayload.metadata.idempotencyKey = fingerprint;
 
+  let storedLead;
   try {
-    const n8nResponse = await submitLeadToN8n(leadPayload, env);
+    storedLead = await saveLead(env, fingerprint, leadPayload);
+  } catch (error) {
+    log("error", "lead_persistence_failed", { requestId, message: error.message });
+    return jsonResponse({ ok: false, message: DEFAULT_ERROR_MESSAGE }, { status: 503, cors, requestId });
+  }
+
+  if (storedLead.status === "meta_sent") {
+    return jsonResponse({ ok: true, message: "Lead sent successfully", duplicate: true }, { status: 200, cors, requestId });
+  }
+
+  if (!isMetaConfigured(env)) {
+    leadFingerprintStore.set(fingerprint, { expiresAt: now + idempotencyWindowMs });
+    return jsonResponse(
+      { ok: true, message: "Lead saved. Automation is awaiting activation.", automationStatus: "received" },
+      { status: 202, cors, requestId }
+    );
+  }
+
+  try {
+    const metaResponse = await sendLeadToMeta(leadPayload, env);
+    await markLeadSent(env, storedLead.id, metaResponse);
     leadFingerprintStore.set(fingerprint, {
       expiresAt: now + idempotencyWindowMs,
     });
 
-    log("info", "lead_forwarded_to_n8n", {
+    log("info", "lead_sent_to_meta", {
       requestId,
       formId: leadPayload.formId,
-      n8nLeadReceived: n8nResponse?.leadReceived === true,
+      metaMessageId: metaResponse.messageId,
     });
 
     return jsonResponse(
       {
         ok: true,
         message: "Lead sent successfully",
-        automationStatus: "n8n_forwarded",
+        automationStatus: "meta_sent",
       },
       { status: 201, cors, requestId }
     );
   } catch (error) {
+    await markLeadFailed(env, storedLead.id, error);
     log("error", "lead_forward_failed", {
       requestId,
       message: error.message,
       status: error.status,
     });
 
-    return jsonResponse({ ok: false, message: DEFAULT_ERROR_MESSAGE }, { status: 502, cors, requestId });
+    leadFingerprintStore.set(fingerprint, { expiresAt: now + idempotencyWindowMs });
+    return jsonResponse({ ok: true, message: "Lead saved. Automation is pending.", automationStatus: "meta_failed" }, { status: 202, cors, requestId });
   }
 };
 
@@ -610,12 +683,12 @@ const handleRequest = async (request, env) => {
     );
   }
 
-  if (url.pathname === "/api/cloudfy/health" && request.method === "GET") {
+  if (url.pathname === "/api/meta/health" && request.method === "GET") {
     try {
-      const cloudfy = await checkCloudfyHealth(env);
-      return jsonResponse({ ok: true, cloudfy }, { cors, requestId });
+      const meta = await checkMetaHealth(env);
+      return jsonResponse({ ok: true, meta: { configured: true, phoneNumberId: meta.id, displayPhoneNumber: meta.display_phone_number || null } }, { cors, requestId });
     } catch (error) {
-      log("error", "cloudfy_health_failed", {
+      log("error", "meta_health_failed", {
         requestId,
         message: error.message,
         status: error.status,
@@ -624,7 +697,7 @@ const handleRequest = async (request, env) => {
       return jsonResponse(
         {
           ok: false,
-          message: "Nao foi possivel verificar o Cloudfy/n8n agora.",
+          message: "Nao foi possivel verificar a API do WhatsApp agora.",
         },
         { status: 502, cors, requestId }
       );
@@ -640,4 +713,7 @@ const handleRequest = async (request, env) => {
 
 export default {
   fetch: handleRequest,
+  scheduled(_controller, env, ctx) {
+    ctx.waitUntil(retryPendingLeads(env));
+  },
 };

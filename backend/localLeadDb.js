@@ -64,9 +64,9 @@ const getLocalLeadDb = () => {
       utm_json TEXT NOT NULL DEFAULT '{}',
       metadata_json TEXT NOT NULL DEFAULT '{}',
       payload_json TEXT NOT NULL DEFAULT '{}',
-      n8n_response_json TEXT,
-      n8n_ok INTEGER NOT NULL DEFAULT 0,
-      n8n_lead_received INTEGER NOT NULL DEFAULT 0,
+      automation_response_json TEXT,
+      automation_ok INTEGER NOT NULL DEFAULT 0,
+      automation_delivered INTEGER NOT NULL DEFAULT 0,
       error_message TEXT,
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
       updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -77,6 +77,15 @@ const getLocalLeadDb = () => {
     CREATE INDEX IF NOT EXISTS idx_local_leads_status ON local_leads (status);
     CREATE INDEX IF NOT EXISTS idx_local_leads_created_at ON local_leads (created_at);
   `);
+
+  const columns = new Set(db.prepare('PRAGMA table_info(local_leads)').all().map((column) => column.name));
+  [
+    ['automation_response_json', 'TEXT'],
+    ['automation_ok', 'INTEGER NOT NULL DEFAULT 0'],
+    ['automation_delivered', 'INTEGER NOT NULL DEFAULT 0']
+  ].forEach(([name, definition]) => {
+    if (!columns.has(name)) db.exec(`ALTER TABLE local_leads ADD COLUMN ${name} ${definition}`);
+  });
 
   return db;
 };
@@ -151,7 +160,7 @@ const saveLocalLead = (leadPayload, idempotencyKey) => {
   };
 };
 
-const updateLocalLeadN8nSuccess = (localLeadId, n8nResponse = {}) => {
+const updateLocalLeadAutomationSuccess = (localLeadId, response = {}) => {
   const database = getLocalLeadDb();
 
   database
@@ -159,33 +168,33 @@ const updateLocalLeadN8nSuccess = (localLeadId, n8nResponse = {}) => {
       `
       UPDATE local_leads
       SET
-        status = 'n8n_forwarded',
-        n8n_response_json = ?,
-        n8n_ok = ?,
-        n8n_lead_received = ?,
+        status = 'meta_sent',
+        automation_response_json = ?,
+        automation_ok = ?,
+        automation_delivered = ?,
         error_message = NULL,
         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       WHERE id = ?
       `
     )
     .run(
-      serializeJson(n8nResponse),
-      n8nResponse?.ok === true ? 1 : 0,
-      n8nResponse?.leadReceived === true ? 1 : 0,
+      serializeJson(response),
+      response?.ok === true ? 1 : 0,
+      response?.messageId ? 1 : 0,
       localLeadId
     );
 };
 
-const updateLocalLeadN8nFailure = (localLeadId, error) => {
+const updateLocalLeadAutomationFailure = (localLeadId, error) => {
   const database = getLocalLeadDb();
-  const message = error instanceof Error ? error.message : String(error || 'Unknown n8n error.');
+  const message = error instanceof Error ? error.message : String(error || 'Unknown automation error.');
 
   database
     .prepare(
       `
       UPDATE local_leads
       SET
-        status = 'n8n_failed',
+        status = 'meta_failed',
         error_message = ?,
         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       WHERE id = ?
@@ -236,6 +245,6 @@ module.exports = {
   getLocalLeadDbPath,
   listLocalLeads,
   saveLocalLead,
-  updateLocalLeadN8nFailure,
-  updateLocalLeadN8nSuccess
+  updateLocalLeadAutomationFailure,
+  updateLocalLeadAutomationSuccess
 };

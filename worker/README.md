@@ -1,74 +1,39 @@
-# Backe Cloudflare Worker
+# BACKE Lead Worker
 
-Proxy publico para o formulario da landing. Ele recebe `POST /api/leads`, valida o payload, aplica CORS por origem permitida e encaminha para o webhook privado do Cloudfy/n8n.
+Backend de produção do formulário. O Worker valida e persiste cada lead no D1 antes de chamar a API oficial do WhatsApp Cloud da Meta. Falhas ficam com status `meta_failed` e são reprocessadas a cada cinco minutos pelo Cron Trigger.
 
-## Endpoints
+## Rotas
 
-- `GET /health`
-- `GET /api/cloudfy/health`
-- `GET /api/local-leads/health`
 - `POST /api/leads`
+- `GET /health`
+- `GET /api/meta/health`
 
-## Variaveis
+## Preparação única
 
-As variaveis publicas ficam em `wrangler.toml`:
-
-```toml
-APP_ENV = "production"
-COMPANY_NAME = "BACKE.co"
-FRONTEND_URL = "https://backe.com.br,https://www.backe.com.br"
-```
-
-Os webhooks do n8n devem ser secrets da Cloudflare:
-
-```sh
-npx wrangler secret put N8N_LEAD_CAPTURE_WEBHOOK_URL --config worker/wrangler.toml
-npx wrangler secret put N8N_HEALTHCHECK_URL --config worker/wrangler.toml
-```
-
-Tambem funcionam os nomes usados pelo backend Express:
-
-```sh
-npx wrangler secret put N8N_LEAD_CAPTURE_WEBHOOK_PROD_URL --config worker/wrangler.toml
-npx wrangler secret put N8N_HEALTHCHECK_PROD_URL --config worker/wrangler.toml
-```
-
-## Deploy manual
-
-```sh
+```bash
 npx wrangler login
-npx wrangler deploy --config worker/wrangler.toml
+npx wrangler d1 create backe-leads --config worker/wrangler.toml
 ```
 
-## Teste local
+O `database_id` público retornado já fica versionado em `worker/wrangler.toml`; ele não é uma credencial. Depois:
 
-Para rodar localmente, crie `worker/.dev.vars` a partir de `worker/.dev.vars.example` e preencha os webhooks reais.
-
-```sh
-npm run worker:dev
+```bash
+npx wrangler d1 migrations apply backe-leads --remote --config worker/wrangler.toml
+npx wrangler secret put META_WHATSAPP_ACCESS_TOKEN --config worker/wrangler.toml
+npx wrangler secret put META_WHATSAPP_PHONE_NUMBER_ID --config worker/wrangler.toml
+npm run worker:deploy
 ```
 
-Depois do deploy, a Cloudflare vai mostrar uma URL parecida com:
+Antes do deploy, crie e aprove na Meta o template definido em `META_WHATSAPP_TEMPLATE_NAME`. O corpo precisa receber, nesta ordem, `{{1}}` para o nome e `{{2}}` para o serviço de interesse.
 
-```txt
-https://backe-lead-proxy.SEUSUBDOMINIO.workers.dev
-```
+Nunca coloque o token da Meta no TOML, GitHub ou frontend como variável `VITE_*`.
 
-Configure essa URL no GitHub em `Settings > Secrets and variables > Actions > Variables`:
+## Estados
 
-```txt
-VITE_API_URL=https://backe-lead-proxy.SEUSUBDOMINIO.workers.dev
-```
+- `received`: persistido antes do primeiro envio.
+- `meta_sent`: aceito pela API da Meta, com o `messageId` armazenado.
+- `meta_failed`: envio falhou e aguarda nova tentativa; no máximo 12 tentativas automáticas.
 
-Depois rode novamente o workflow `Deploy GitHub Pages`.
+Teste local: `npm run worker:dev`. O D1 local usa as mesmas migrations. Teste o cron pelo endpoint de scheduled handler exposto pelo Wrangler.
 
-## GitHub Actions
-
-Para deploy automatico da Worker, configure estes secrets no GitHub:
-
-```txt
-CLOUDFLARE_API_TOKEN
-CLOUDFLARE_ACCOUNT_ID
-```
-
-O token precisa permitir deploy de Workers no seu account.
+Sem os secrets da Meta, o Worker continua aceitando e persistindo leads, responde `202` com `received` e mantém a caixa de saída para processamento futuro. Isso permite ativar e validar a infraestrutura antes de conectar o WhatsApp. `meta_failed` é reservado para falhas reais depois da ativação.
