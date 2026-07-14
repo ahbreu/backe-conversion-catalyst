@@ -32,5 +32,6 @@ Se a Meta estiver fora do ar, `/api/leads` responde `202` e o lead permanece no 
 - IP e User-Agent não são persistidos.
 - Leads são eliminados automaticamente após 180 dias.
 - `/api/admin/health` retorna apenas contagens e exige `ADMIN_HEALTH_TOKEN`.
+- `.github/workflows/monitor-leads.yml` verifica o Worker a cada hora e gera uma falha/alerta do GitHub quando há retentativas esgotadas.
 
 Em incidente: desative temporariamente o formulário removendo `VITE_API_URL`, revogue/rotacione secrets no Wrangler, preserve logs necessários, avalie o escopo dos titulares afetados e siga o procedimento aplicável da ANPD.

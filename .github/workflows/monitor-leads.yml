@@ -1,0 +1,30 @@
+name: Monitor lead pipeline
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check public Worker health
+        run: curl --fail --silent --show-error https://backe-lead-proxy.backeco.workers.dev/health > /dev/null
+
+      - name: Check exhausted lead retries
+        env:
+          ADMIN_HEALTH_TOKEN: ${{ secrets.ADMIN_HEALTH_TOKEN }}
+        run: |
+          test -n "$ADMIN_HEALTH_TOKEN"
+          response=$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $ADMIN_HEALTH_TOKEN" \
+            https://backe-lead-proxy.backeco.workers.dev/api/admin/health)
+          exhausted=$(jq -r '.exhaustedRetries' <<< "$response")
+          test "$exhausted" = "0" || {
+            echo "::error title=Lead pipeline requires attention::$exhausted lead(s) exhausted automatic retries."
+            exit 1
+          }
