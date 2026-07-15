@@ -27,7 +27,7 @@ jobs:
           unassigned=$(jq -r '.unassignedLeads' <<< "$response")
           sellers=$(jq -r '.activeSellers' <<< "$response")
           test "$exhausted" = "0" || {
-            echo "::error title=Lead pipeline requires attention::$exhausted lead(s) exhausted automatic retries."
+            echo "::error title=Lead pipeline requires attention::$exhausted lead automation(s) exhausted durable retries."
             exit 1
           }
           test "$sellers" = "0" || test "$unassigned" = "0" || {

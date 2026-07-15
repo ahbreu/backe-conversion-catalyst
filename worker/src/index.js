@@ -881,7 +881,7 @@ const handleRequest = async (request, env) => {
       "SELECT status, COUNT(*) AS count FROM leads GROUP BY status"
     ).all();
     const exhausted = await env.LEADS_DB.prepare(
-      "SELECT COUNT(*) AS count FROM leads WHERE status = 'meta_failed' AND attempts >= 12"
+      "SELECT COUNT(*) AS count FROM leads WHERE contact_status IN ('automation_failed', 'followup_failed')"
     ).first();
     const unassigned = await env.LEADS_DB.prepare(
       "SELECT COUNT(*) AS count FROM leads WHERE seller_id IS NULL AND created_at < datetime('now', '-1 hour')"
@@ -996,10 +996,12 @@ export class LeadAutomationWorkflow extends WorkflowEntrypoint {
 
     await step.do("assign seller", async () => assignSeller(this.env, leadId));
 
-    const initialMessage = await step.do(
-      "send initial whatsapp template",
-      { retries: { limit: 5, delay: "30 seconds", backoff: "exponential" }, timeout: "2 minutes" },
-      async () => {
+    let initialMessage;
+    try {
+      initialMessage = await step.do(
+        "send initial whatsapp template",
+        { retries: { limit: 5, delay: "30 seconds", backoff: "exponential" }, timeout: "2 minutes" },
+        async () => {
         if (!(await claimLead(this.env, leadId))) {
           const current = await this.env.LEADS_DB.prepare("SELECT status, meta_message_id FROM leads WHERE id = ?").bind(leadId).first();
           if (current?.status === "meta_sent") return { ok: true, messageId: current.meta_message_id, duplicate: true };
@@ -1013,8 +1015,14 @@ export class LeadAutomationWorkflow extends WorkflowEntrypoint {
           await markLeadFailed(this.env, leadId, error);
           throw error;
         }
-      }
-    );
+        }
+      );
+    } catch (error) {
+      await step.do("mark initial automation failure", async () => this.env.LEADS_DB.prepare(
+        "UPDATE leads SET contact_status = 'automation_failed', status = 'meta_failed', lease_until = NULL, error_message = ?, updated_at = datetime('now') WHERE id = ?"
+      ).bind(String(error.message || "Workflow failed").slice(0, 500), leadId).run());
+      return { leadId, status: "meta_failed" };
+    }
 
     if (!initialMessage.messageId || !this.env.META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME) {
       return { leadId, status: "meta_sent", followup: "disabled" };
@@ -1035,17 +1043,25 @@ export class LeadAutomationWorkflow extends WorkflowEntrypoint {
     const followupDelay = millisecondsUntilBusinessHours(this.env);
     if (followupDelay > 0) await step.sleep("wait for followup business hours", `${Math.max(1, Math.ceil(followupDelay / 60_000))} minutes`);
 
-    const followup = await step.do(
-      "send followup whatsapp template",
-      { retries: { limit: 3, delay: "1 minute", backoff: "exponential" }, timeout: "2 minutes" },
-      async () => {
+    let followup;
+    try {
+      followup = await step.do(
+        "send followup whatsapp template",
+        { retries: { limit: 3, delay: "1 minute", backoff: "exponential" }, timeout: "2 minutes" },
+        async () => {
         const current = await this.env.LEADS_DB.prepare("SELECT last_inbound_at FROM leads WHERE id = ?").bind(leadId).first();
         if (current?.last_inbound_at) return { skipped: true };
         const response = await sendLeadToMeta(lead.payload, this.env, this.env.META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME);
         await recordOutboundMessage(this.env, leadId, response, this.env.META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME);
         return response;
-      }
-    );
+        }
+      );
+    } catch (error) {
+      await step.do("mark followup automation failure", async () => this.env.LEADS_DB.prepare(
+        "UPDATE leads SET contact_status = 'followup_failed', error_message = ?, updated_at = datetime('now') WHERE id = ?"
+      ).bind(String(error.message || "Followup failed").slice(0, 500), leadId).run());
+      return { leadId, status: "meta_sent", followup: "failed" };
+    }
     return { leadId, status: followup.skipped ? "replied" : "followup_sent" };
   }
 }
