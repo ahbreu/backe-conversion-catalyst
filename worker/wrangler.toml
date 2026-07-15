@@ -9,6 +9,7 @@ FRONTEND_URL = "https://backe.com.br,https://www.backe.com.br"
 META_GRAPH_API_VERSION = "v23.0"
 META_WHATSAPP_TEMPLATE_NAME = "backe_site_lead_welcome"
 META_WHATSAPP_TEMPLATE_LANGUAGE = "pt_BR"
+META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME = "backe_site_lead_followup"
 META_REQUEST_TIMEOUT_MS = "10000"
 META_RETRY_ATTEMPTS = "3"
 META_RETRY_BASE_DELAY_MS = "500"
@@ -16,6 +17,10 @@ RATE_LIMIT_WINDOW_MS = "60000"
 RATE_LIMIT_MAX = "20"
 LEAD_IDEMPOTENCY_WINDOW_MS = "300000"
 LEAD_RETENTION_DAYS = "180"
+FOLLOWUP_DELAY_HOURS = "24"
+BUSINESS_TIMEZONE = "America/Sao_Paulo"
+BUSINESS_START_HOUR = "9"
+BUSINESS_END_HOUR = "18"
 
 [triggers]
 crons = ["*/5 * * * *"]
@@ -25,3 +30,11 @@ binding = "LEADS_DB"
 database_name = "backe-leads"
 database_id = "1afdc13d-f885-48a1-8fb4-12ab59b6e61e"
 migrations_dir = "migrations"
+
+[[workflows]]
+name = "backe-lead-automation"
+binding = "LEAD_AUTOMATION"
+class_name = "LeadAutomationWorkflow"
+
+[observability]
+enabled = true

@@ -6,7 +6,7 @@ Landing page institucional da BACKE Creative, focada em conversão e captura con
 
 - Vite, React 18, TypeScript e Tailwind no frontend.
 - Express para desenvolvimento local.
-- Cloudflare Worker + D1 + Cron Trigger em produção.
+- Cloudflare Worker + D1 + Workflows + Cron Trigger em produção.
 - API oficial do WhatsApp Cloud da Meta para contato automático.
 - GitHub Pages para hospedar o site.
 
@@ -29,7 +29,7 @@ Rotas do backend:
 
 No ambiente local, leads são persistidos em SQLite antes do envio para a Meta. O caminho padrão fica fora do repositório, em `~/.backe/lead-db/leads.sqlite` no Linux/macOS.
 
-Estados do pipeline: `received`, `meta_sent` e `meta_failed`. Uma indisponibilidade da Meta não transforma um lead persistido em erro para o visitante.
+Estados do pipeline: `received`, `processing`, `meta_sent` e `meta_failed`. O Workflow durável aguarda horário comercial, distribui o lead, registra entrega/resposta e executa follow-up aprovado. Uma indisponibilidade da Meta não transforma um lead persistido em erro para o visitante.
 
 ## Produção
 

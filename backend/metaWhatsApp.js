@@ -1,10 +1,12 @@
+const crypto = require('crypto');
+
 const COMPANY_NAME = process.env.COMPANY_NAME || 'BACKE.co';
 const APP_ENV = process.env.APP_ENV || 'sandbox';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ALLOWED_SERVICE_INTERESTS = new Set([
   'automacao', 'sites', 'trafego', 'gestao', 'consultoria', 'outro', 'automation',
-  'website', 'traffic', 'management', 'consulting', 'other'
-  , 'diagnóstico estratégico', 'gestão de tráfego', 'identidade visual e design gráfico', 'captação',
+  'website', 'traffic', 'management', 'consulting', 'other',
+  'diagnóstico estratégico', 'gestão de tráfego', 'identidade visual e design gráfico', 'captação',
   'diagnóstico gratuito', 'solução personalizada', 'dúvida comercial'
 ]);
 const HTML_TAG_PATTERN = /<[^>]*>/g;
@@ -158,4 +160,13 @@ const verifyTurnstile = async (token, remoteip) => {
   return { success: result.success === true && result.action === 'lead_form' && hostnameAllowed };
 };
 
-module.exports = { checkMetaHealth, hasHoneypotValue, normalizeLeadPayload, normalizePhone, sendLeadWhatsApp, validateLeadPayload, verifyTurnstile };
+const verifyMetaSignature = (rawBody, signatureHeader) => {
+  const secret = process.env.META_APP_SECRET;
+  if (!secret || !signatureHeader?.startsWith('sha256=') || !rawBody) return false;
+  const expected = `sha256=${crypto.createHmac('sha256', secret).update(rawBody).digest('hex')}`;
+  const received = Buffer.from(signatureHeader);
+  const calculated = Buffer.from(expected);
+  return received.length === calculated.length && crypto.timingSafeEqual(received, calculated);
+};
+
+module.exports = { checkMetaHealth, hasHoneypotValue, normalizeLeadPayload, normalizePhone, sendLeadWhatsApp, validateLeadPayload, verifyMetaSignature, verifyTurnstile };

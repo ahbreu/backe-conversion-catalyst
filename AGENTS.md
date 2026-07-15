@@ -6,8 +6,8 @@ You are a senior full-stack engineer with thousands of hours of production exper
 
 - Frontend: Vite + React 18 + TypeScript + Tailwind. Entry at `src/App.tsx`, page composition at `src/pages/Index.tsx`, visual sections in `src/components/*Section.tsx`, global toasts via `src/components/ui/sonner.tsx`.
 - Local backend: Express server (`backend/server.js`, port 3001) exposes `POST /api/leads`, `GET /api/local-leads/health`, `GET /api/meta/health`. It validates/normalizes leads, persists them in local SQLite and sends an approved template through the official Meta WhatsApp Cloud API.
-- Production: a Cloudflare Worker in `worker/` mirrors the lead and health routes, enforces CORS against `FRONTEND_URL`, persists every lead in D1 before delivery, and retries Meta failures through a Cron Trigger. Deploy via `npm run worker:deploy`. Details are in `worker/README.md` and `docs/production-cloudflare-worker.md`.
-- Automation: Meta WhatsApp secrets live only in Wrangler. D1 is the durable lead outbox; Cloudfy, n8n and Evolution are not part of the lead pipeline.
+- Production: a Cloudflare Worker in `worker/` mirrors the lead and health routes, enforces CORS against `FRONTEND_URL`, persists every lead in D1 before delivery, and runs a durable Cloudflare Workflow per lead. Cron handles activation scans, reports and retention. Deploy via `npm run worker:deploy`. Details are in `worker/README.md` and `docs/production-cloudflare-worker.md`.
+- Automation: `LeadAutomationWorkflow` handles business hours, seller assignment, Meta delivery, reply waiting and follow-up. Meta WhatsApp secrets live only in Wrangler. D1 is the durable lead outbox and message-status ledger; Cloudfy, n8n and Evolution are not part of the lead pipeline.
 - Deploy: GitHub Pages via `.github/workflows/deploy-pages.yml` on push to `main`. Base path controlled by `VITE_BASE_PATH`; production API URL by the `VITE_API_URL` repo variable.
 - Key scripts: `npm run dev` (local full stack via `scripts/dev-local.cjs`), `npm run dev:frontend`, `npm run dev:backend`, `npm run worker:dev`, `npm run leads:local`, `npm run test:backend`, `npm run test:meta`, `npm run test:lead`.
 

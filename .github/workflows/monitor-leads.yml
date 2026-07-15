@@ -24,7 +24,13 @@ jobs:
             -H "Authorization: Bearer $ADMIN_HEALTH_TOKEN" \
             https://backe-lead-proxy.backeco.workers.dev/api/admin/health)
           exhausted=$(jq -r '.exhaustedRetries' <<< "$response")
+          unassigned=$(jq -r '.unassignedLeads' <<< "$response")
+          sellers=$(jq -r '.activeSellers' <<< "$response")
           test "$exhausted" = "0" || {
             echo "::error title=Lead pipeline requires attention::$exhausted lead(s) exhausted automatic retries."
+            exit 1
+          }
+          test "$sellers" = "0" || test "$unassigned" = "0" || {
+            echo "::error title=Lead distribution requires attention::$unassigned lead(s) remain unassigned."
             exit 1
           }

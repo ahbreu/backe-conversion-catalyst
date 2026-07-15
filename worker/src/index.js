@@ -1,3 +1,5 @@
+import { WorkflowEntrypoint } from "cloudflare:workers";
+
 const DEFAULT_ERROR_MESSAGE =
   "Nao conseguimos enviar sua solicitacao agora. Tente novamente ou fale conosco pelo WhatsApp.";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -448,15 +450,15 @@ const isMetaConfigured = (env) => Boolean(
   env.META_WHATSAPP_TEMPLATE_NAME
 );
 
-const buildMetaTemplateRequest = (leadPayload, env) => {
-  if (!env.META_WHATSAPP_TEMPLATE_NAME) throw new Error("Meta WhatsApp template is not configured.");
+const buildMetaTemplateRequest = (leadPayload, env, templateName = env.META_WHATSAPP_TEMPLATE_NAME) => {
+  if (!templateName) throw new Error("Meta WhatsApp template is not configured.");
   return {
     messaging_product: "whatsapp",
     recipient_type: "individual",
     to: leadPayload.lead.phone,
     type: "template",
     template: {
-      name: env.META_WHATSAPP_TEMPLATE_NAME,
+      name: templateName,
       language: { code: env.META_WHATSAPP_TEMPLATE_LANGUAGE || "pt_BR" },
       components: [{ type: "body", parameters: [
         { type: "text", text: leadPayload.lead.name },
@@ -466,12 +468,12 @@ const buildMetaTemplateRequest = (leadPayload, env) => {
   };
 };
 
-const sendLeadToMeta = async (leadPayload, env) => {
+const sendLeadToMeta = async (leadPayload, env, templateName = env.META_WHATSAPP_TEMPLATE_NAME) => {
   if (!env.META_WHATSAPP_ACCESS_TOKEN) throw new Error("Meta WhatsApp is not configured.");
   const data = await requestJson(`${getMetaUrl(env)}/messages`, env, {
     method: "POST",
     headers: { Authorization: `Bearer ${env.META_WHATSAPP_ACCESS_TOKEN}` },
-    body: JSON.stringify(buildMetaTemplateRequest(leadPayload, env)),
+    body: JSON.stringify(buildMetaTemplateRequest(leadPayload, env, templateName)),
   });
   return { ok: true, messageId: data?.messages?.[0]?.id || null };
 };
@@ -510,8 +512,34 @@ const claimLead = async (env, id) => {
   return Number(result.meta?.changes || 0) === 1;
 };
 
+const startLeadWorkflow = async (env, leadId) => {
+  if (!env.LEAD_AUTOMATION) return null;
+  const existing = await env.LEADS_DB.prepare(
+    "SELECT workflow_instance_id FROM leads WHERE id = ?"
+  ).bind(leadId).first();
+  if (existing?.workflow_instance_id) return existing.workflow_instance_id;
+  const instanceId = `lead-${leadId}`;
+  try {
+    await env.LEAD_AUTOMATION.create({ id: instanceId, params: { leadId } });
+  } catch (error) {
+    if (!String(error.message || "").toLowerCase().includes("already")) throw error;
+  }
+  await env.LEADS_DB.prepare(
+    "UPDATE leads SET workflow_instance_id = ?, updated_at = datetime('now') WHERE id = ? AND workflow_instance_id IS NULL"
+  ).bind(instanceId, leadId).run();
+  return instanceId;
+};
+
+const startPendingWorkflows = async (env) => {
+  if (!env.LEAD_AUTOMATION || !isMetaConfigured(env)) return;
+  const { results = [] } = await env.LEADS_DB.prepare(
+    "SELECT id FROM leads WHERE status IN ('received', 'meta_failed') AND workflow_instance_id IS NULL AND attempts < 12 ORDER BY created_at LIMIT 25"
+  ).all();
+  for (const row of results) await startLeadWorkflow(env, row.id);
+};
+
 const retryPendingLeads = async (env) => {
-  if (!env.LEADS_DB || !isMetaConfigured(env)) return;
+  if (!env.LEADS_DB || !isMetaConfigured(env) || env.LEAD_AUTOMATION) return;
   const { results = [] } = await env.LEADS_DB.prepare(
     "SELECT id, payload_json FROM leads WHERE (status IN ('received', 'meta_failed') OR (status = 'processing' AND lease_until < datetime('now'))) AND attempts < 12 AND next_attempt_at <= datetime('now') ORDER BY created_at LIMIT 25"
   ).all();
@@ -526,6 +554,29 @@ const retryPendingLeads = async (env) => {
     }
   }
 };
+
+const generateAutomationReports = (env) => env.LEADS_DB.batch([
+  env.LEADS_DB.prepare(
+    `INSERT OR REPLACE INTO automation_reports
+     SELECT 'daily', date('now'),
+       (SELECT COUNT(*) FROM leads WHERE date(created_at) = date('now')),
+       (SELECT COUNT(*) FROM lead_messages WHERE direction = 'outbound' AND date(created_at) = date('now')),
+       (SELECT COUNT(*) FROM lead_messages WHERE status IN ('delivered', 'read') AND date(updated_at) = date('now')),
+       (SELECT COUNT(*) FROM lead_messages WHERE status = 'failed' AND date(updated_at) = date('now')),
+       (SELECT COUNT(*) FROM leads WHERE contact_status = 'replied' AND date(last_inbound_at) = date('now')),
+       datetime('now')`
+  ),
+  env.LEADS_DB.prepare(
+    `INSERT OR REPLACE INTO automation_reports
+     SELECT 'weekly', strftime('%Y-W%W', 'now'),
+       (SELECT COUNT(*) FROM leads WHERE created_at >= datetime('now', '-7 days')),
+       (SELECT COUNT(*) FROM lead_messages WHERE direction = 'outbound' AND created_at >= datetime('now', '-7 days')),
+       (SELECT COUNT(*) FROM lead_messages WHERE status IN ('delivered', 'read') AND updated_at >= datetime('now', '-7 days')),
+       (SELECT COUNT(*) FROM lead_messages WHERE status = 'failed' AND updated_at >= datetime('now', '-7 days')),
+       (SELECT COUNT(*) FROM leads WHERE contact_status = 'replied' AND last_inbound_at >= datetime('now', '-7 days')),
+       datetime('now')`
+  ),
+]);
 
 const handleOptions = (request, env, requestId) => {
   const cors = getCors(request, env);
@@ -659,49 +710,121 @@ const handleLeadPost = async (request, env, cors, requestId) => {
     return jsonResponse({ ok: true, message: "Lead sent successfully", duplicate: true }, { status: 200, cors, requestId });
   }
 
-  if (!isMetaConfigured(env)) {
-    leadFingerprintStore.set(fingerprint, { expiresAt: now + idempotencyWindowMs });
-    return jsonResponse(
-      { ok: true, message: "Lead saved. Automation is awaiting activation.", automationStatus: "received" },
-      { status: 202, cors, requestId }
-    );
-  }
-
   try {
-    if (!(await claimLead(env, storedLead.id))) {
-      return jsonResponse({ ok: true, message: "Lead is already being processed", duplicate: true }, { status: 200, cors, requestId });
-    }
-    const metaResponse = await sendLeadToMeta(leadPayload, env);
-    await markLeadSent(env, storedLead.id, metaResponse);
-    leadFingerprintStore.set(fingerprint, {
-      expiresAt: now + idempotencyWindowMs,
-    });
-
-    log("info", "lead_sent_to_meta", {
-      requestId,
-      formId: leadPayload.formId,
-      metaMessageId: metaResponse.messageId,
-    });
-
+    const workflowInstanceId = isMetaConfigured(env)
+      ? await startLeadWorkflow(env, storedLead.id)
+      : null;
+    leadFingerprintStore.set(fingerprint, { expiresAt: now + idempotencyWindowMs });
     return jsonResponse(
       {
         ok: true,
-        message: "Lead sent successfully",
-        automationStatus: "meta_sent",
+        message: workflowInstanceId
+          ? "Lead saved. Automation started."
+          : "Lead saved. Automation is awaiting activation.",
+        automationStatus: "received",
       },
-      { status: 201, cors, requestId }
+      { status: 202, cors, requestId }
     );
   } catch (error) {
-    await markLeadFailed(env, storedLead.id, error);
-    log("error", "lead_forward_failed", {
+    log("error", "lead_workflow_start_failed", {
       requestId,
       message: error.message,
       status: error.status,
     });
-
-    leadFingerprintStore.set(fingerprint, { expiresAt: now + idempotencyWindowMs });
-    return jsonResponse({ ok: true, message: "Lead saved. Automation is pending.", automationStatus: "meta_failed" }, { status: 202, cors, requestId });
+    return jsonResponse({ ok: true, message: "Lead saved. Automation is pending.", automationStatus: "received" }, { status: 202, cors, requestId });
   }
+};
+
+const verifyMetaSignature = async (rawBody, signatureHeader, appSecret) => {
+  if (!appSecret || !signatureHeader?.startsWith("sha256=")) return false;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(appSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+  const expected = `sha256=${[...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+  if (expected.length !== signatureHeader.length) return false;
+  let mismatch = 0;
+  for (let index = 0; index < expected.length; index += 1) mismatch |= expected.charCodeAt(index) ^ signatureHeader.charCodeAt(index);
+  return mismatch === 0;
+};
+
+const handleMetaWebhookVerification = (url, env, cors, requestId) => {
+  const mode = url.searchParams.get("hub.mode");
+  const token = url.searchParams.get("hub.verify_token");
+  const challenge = url.searchParams.get("hub.challenge");
+  if (env.META_WEBHOOK_VERIFY_TOKEN && mode === "subscribe" && token === env.META_WEBHOOK_VERIFY_TOKEN && challenge) {
+    return new Response(challenge, { status: 200, headers: { ...cors.headers, "Content-Type": "text/plain", "X-Request-Id": requestId } });
+  }
+  return jsonResponse({ ok: false, message: "Webhook verification failed." }, { status: 403, cors, requestId });
+};
+
+const findLeadByPhone = (env, phone) => env.LEADS_DB.prepare(
+  "SELECT id, workflow_instance_id FROM leads WHERE json_extract(payload_json, '$.lead.phone') = ? ORDER BY created_at DESC LIMIT 1"
+).bind(normalizePhone(phone)).first();
+
+const handleMetaWebhook = async (request, env, cors, requestId) => {
+  if (!env.META_APP_SECRET) return jsonResponse({ ok: false, message: "Webhook not configured." }, { status: 503, cors, requestId });
+  const rawBody = await request.text();
+  if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) {
+    return jsonResponse({ ok: false, message: "Payload too large." }, { status: 413, cors, requestId });
+  }
+  if (!(await verifyMetaSignature(rawBody, request.headers.get("X-Hub-Signature-256"), env.META_APP_SECRET))) {
+    log("warn", "meta_webhook_signature_rejected", { requestId });
+    return jsonResponse({ ok: false, message: "Invalid signature." }, { status: 401, cors, requestId });
+  }
+  let payload;
+  try { payload = JSON.parse(rawBody); } catch { return jsonResponse({ ok: false, message: "Invalid JSON." }, { status: 400, cors, requestId }); }
+  const eventHash = await sha256Hex(rawBody);
+  const inserted = await env.LEADS_DB.prepare(
+    "INSERT OR IGNORE INTO webhook_events (event_hash, event_type) VALUES (?, 'meta')"
+  ).bind(eventHash).run();
+  if (Number(inserted.meta?.changes || 0) === 0) return jsonResponse({ ok: true, duplicate: true }, { cors, requestId });
+
+  for (const entry of payload.entry || []) {
+    for (const change of entry.changes || []) {
+      const value = change.value || {};
+      for (const status of value.statuses || []) {
+        const nextStatus = ["sent", "delivered", "read", "failed"].includes(status.status) ? status.status : null;
+        if (!nextStatus) continue;
+        await env.LEADS_DB.prepare(
+          `UPDATE lead_messages SET status = ?, error_code = ?, error_message = ?, occurred_at = datetime(?, 'unixepoch'), updated_at = datetime('now')
+           WHERE meta_message_id = ?`
+        ).bind(
+          nextStatus,
+          nullableString(status.errors?.[0]?.code),
+          nullableString(status.errors?.[0]?.title),
+          Number(status.timestamp || Math.floor(Date.now() / 1000)),
+          status.id
+        ).run();
+      }
+      for (const message of value.messages || []) {
+        const lead = await findLeadByPhone(env, message.from);
+        if (!lead) continue;
+        await env.LEADS_DB.batch([
+          env.LEADS_DB.prepare(
+            `INSERT OR IGNORE INTO lead_messages (lead_id, direction, message_type, meta_message_id, status, occurred_at)
+             VALUES (?, 'inbound', ?, ?, 'received', datetime(?, 'unixepoch'))`
+          ).bind(lead.id, requiredString(message.type) || "unknown", message.id, Number(message.timestamp || Math.floor(Date.now() / 1000))),
+          env.LEADS_DB.prepare(
+            "UPDATE leads SET contact_status = 'replied', last_inbound_at = datetime('now'), updated_at = datetime('now') WHERE id = ?"
+          ).bind(lead.id),
+        ]);
+        if (lead.workflow_instance_id && env.LEAD_AUTOMATION) {
+          try {
+            const instance = await env.LEAD_AUTOMATION.get(lead.workflow_instance_id);
+            await instance.sendEvent({ type: "whatsapp-inbound", payload: { messageId: message.id } });
+          } catch (error) {
+            log("error", "workflow_inbound_event_failed", { requestId, leadId: lead.id, message: error.message });
+          }
+        }
+      }
+    }
+  }
+  return jsonResponse({ ok: true }, { cors, requestId });
 };
 
 const handleRequest = async (request, env) => {
@@ -718,6 +841,14 @@ const handleRequest = async (request, env) => {
   }
 
   const url = new URL(request.url);
+
+  if (url.pathname === "/api/meta/webhook" && request.method === "GET") {
+    return handleMetaWebhookVerification(url, env, cors, requestId);
+  }
+
+  if (url.pathname === "/api/meta/webhook" && request.method === "POST") {
+    return handleMetaWebhook(request, env, cors, requestId);
+  }
 
   if ((url.pathname === "/" || url.pathname === "/health") && request.method === "GET") {
     return jsonResponse(
@@ -752,10 +883,22 @@ const handleRequest = async (request, env) => {
     const exhausted = await env.LEADS_DB.prepare(
       "SELECT COUNT(*) AS count FROM leads WHERE status = 'meta_failed' AND attempts >= 12"
     ).first();
+    const unassigned = await env.LEADS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM leads WHERE seller_id IS NULL AND created_at < datetime('now', '-1 hour')"
+    ).first();
+    const reports = await env.LEADS_DB.prepare(
+      "SELECT * FROM automation_reports ORDER BY period_start DESC LIMIT 8"
+    ).all();
+    const activeSellers = await env.LEADS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM sellers WHERE active = 1"
+    ).first();
     return jsonResponse({
       ok: true,
       leadsByStatus: Object.fromEntries((counts.results || []).map((row) => [row.status, row.count])),
       exhaustedRetries: Number(exhausted?.count || 0),
+      unassignedLeads: Number(unassigned?.count || 0),
+      activeSellers: Number(activeSellers?.count || 0),
+      recentReports: reports.results || [],
     }, { cors, requestId });
   }
 
@@ -787,15 +930,140 @@ const handleRequest = async (request, env) => {
   return jsonResponse({ ok: false, message: "Rota nao encontrada." }, { status: 404, cors, requestId });
 };
 
+const millisecondsUntilBusinessHours = (env, now = new Date()) => {
+  const timezone = env.BUSINESS_TIMEZONE || "America/Sao_Paulo";
+  const startHour = Number(env.BUSINESS_START_HOUR || 9);
+  const endHour = Number(env.BUSINESS_END_HOUR || 18);
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "short",
+    hour: "2-digit",
+    hour12: false,
+  });
+  for (let offsetMinutes = 0; offsetMinutes <= 8 * 24 * 60; offsetMinutes += 15) {
+    const candidate = new Date(now.getTime() + offsetMinutes * 60_000);
+    const parts = Object.fromEntries(formatter.formatToParts(candidate).map((part) => [part.type, part.value]));
+    const hour = Number(parts.hour);
+    if (!['Sat', 'Sun'].includes(parts.weekday) && hour >= startHour && hour < endHour) {
+      return offsetMinutes * 60_000;
+    }
+  }
+  return 60 * 60_000;
+};
+
+const assignSeller = async (env, leadId) => {
+  const existing = await env.LEADS_DB.prepare("SELECT seller_id FROM leads WHERE id = ?").bind(leadId).first();
+  if (existing?.seller_id) return existing.seller_id;
+  const seller = await env.LEADS_DB.prepare(
+    "SELECT id FROM sellers WHERE active = 1 ORDER BY COALESCE(last_assigned_at, '1970-01-01'), id LIMIT 1"
+  ).first();
+  if (!seller) return null;
+  await env.LEADS_DB.batch([
+    env.LEADS_DB.prepare("UPDATE leads SET seller_id = ?, updated_at = datetime('now') WHERE id = ? AND seller_id IS NULL").bind(seller.id, leadId),
+    env.LEADS_DB.prepare("UPDATE sellers SET last_assigned_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").bind(seller.id),
+  ]);
+  return seller.id;
+};
+
+const recordOutboundMessage = (env, leadId, response, templateName) => env.LEADS_DB.batch([
+  env.LEADS_DB.prepare(
+    `INSERT OR IGNORE INTO lead_messages (lead_id, direction, message_type, template_name, meta_message_id, status)
+     VALUES (?, 'outbound', 'template', ?, ?, 'sent')`
+  ).bind(leadId, templateName, response.messageId),
+  env.LEADS_DB.prepare(
+    `UPDATE leads SET status = 'meta_sent', meta_message_id = ?, contact_status = 'contacted',
+     last_outbound_at = datetime('now'), lease_until = NULL, error_message = NULL, updated_at = datetime('now') WHERE id = ?`
+  ).bind(response.messageId, leadId),
+]);
+
+export class LeadAutomationWorkflow extends WorkflowEntrypoint {
+  async run(event, step) {
+    const leadId = Number(event.payload?.leadId);
+    if (!Number.isInteger(leadId) || leadId <= 0) throw new Error("Invalid lead workflow payload.");
+
+    const lead = await step.do("load persisted lead", async () => {
+      const row = await this.env.LEADS_DB.prepare("SELECT id, status, payload_json FROM leads WHERE id = ?").bind(leadId).first();
+      if (!row) throw new Error("Lead not found.");
+      return { ...row, payload: JSON.parse(row.payload_json) };
+    });
+
+    if (!isMetaConfigured(this.env)) {
+      return { leadId, status: "received", reason: "meta_not_configured" };
+    }
+
+    const initialDelay = millisecondsUntilBusinessHours(this.env);
+    if (initialDelay > 0) await step.sleep("wait for initial business hours", `${Math.max(1, Math.ceil(initialDelay / 60_000))} minutes`);
+
+    await step.do("assign seller", async () => assignSeller(this.env, leadId));
+
+    const initialMessage = await step.do(
+      "send initial whatsapp template",
+      { retries: { limit: 5, delay: "30 seconds", backoff: "exponential" }, timeout: "2 minutes" },
+      async () => {
+        if (!(await claimLead(this.env, leadId))) {
+          const current = await this.env.LEADS_DB.prepare("SELECT status, meta_message_id FROM leads WHERE id = ?").bind(leadId).first();
+          if (current?.status === "meta_sent") return { ok: true, messageId: current.meta_message_id, duplicate: true };
+          throw new Error("Lead is already being processed.");
+        }
+        try {
+          const response = await sendLeadToMeta(lead.payload, this.env);
+          await recordOutboundMessage(this.env, leadId, response, this.env.META_WHATSAPP_TEMPLATE_NAME);
+          return response;
+        } catch (error) {
+          await markLeadFailed(this.env, leadId, error);
+          throw error;
+        }
+      }
+    );
+
+    if (!initialMessage.messageId || !this.env.META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME) {
+      return { leadId, status: "meta_sent", followup: "disabled" };
+    }
+
+    let replied = false;
+    try {
+      await step.waitForEvent("wait for whatsapp reply", {
+        type: "whatsapp-inbound",
+        timeout: `${Math.max(1, Number(this.env.FOLLOWUP_DELAY_HOURS || 24))} hours`,
+      });
+      replied = true;
+    } catch {
+      replied = false;
+    }
+    if (replied) return { leadId, status: "replied", followup: "skipped" };
+
+    const followupDelay = millisecondsUntilBusinessHours(this.env);
+    if (followupDelay > 0) await step.sleep("wait for followup business hours", `${Math.max(1, Math.ceil(followupDelay / 60_000))} minutes`);
+
+    const followup = await step.do(
+      "send followup whatsapp template",
+      { retries: { limit: 3, delay: "1 minute", backoff: "exponential" }, timeout: "2 minutes" },
+      async () => {
+        const current = await this.env.LEADS_DB.prepare("SELECT last_inbound_at FROM leads WHERE id = ?").bind(leadId).first();
+        if (current?.last_inbound_at) return { skipped: true };
+        const response = await sendLeadToMeta(lead.payload, this.env, this.env.META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME);
+        await recordOutboundMessage(this.env, leadId, response, this.env.META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME);
+        return response;
+      }
+    );
+    return { leadId, status: followup.skipped ? "replied" : "followup_sent" };
+  }
+}
+
 export default {
   fetch: handleRequest,
   scheduled(_controller, env, ctx) {
     ctx.waitUntil(Promise.all([
+      startPendingWorkflows(env),
       retryPendingLeads(env),
+      generateAutomationReports(env),
       env.LEADS_DB?.batch([
         env.LEADS_DB.prepare("DELETE FROM rate_limits WHERE expires_at < datetime('now')"),
-      env.LEADS_DB.prepare("DELETE FROM leads WHERE status != 'processing' AND created_at < datetime('now', ?)")
-        .bind(`-${Math.max(1, Number(env.LEAD_RETENTION_DAYS || 180))} days`),
+        env.LEADS_DB.prepare("DELETE FROM webhook_events WHERE received_at < datetime('now', '-30 days')"),
+        env.LEADS_DB.prepare("DELETE FROM lead_messages WHERE lead_id IN (SELECT id FROM leads WHERE status != 'processing' AND created_at < datetime('now', ?))")
+          .bind(`-${Math.max(1, Number(env.LEAD_RETENTION_DAYS || 180))} days`),
+        env.LEADS_DB.prepare("DELETE FROM leads WHERE status != 'processing' AND created_at < datetime('now', ?)")
+          .bind(`-${Math.max(1, Number(env.LEAD_RETENTION_DAYS || 180))} days`),
       ]),
     ]));
   },

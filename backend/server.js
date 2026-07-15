@@ -19,6 +19,7 @@ const {
   normalizeLeadPayload,
   sendLeadWhatsApp,
   validateLeadPayload,
+  verifyMetaSignature,
   verifyTurnstile
 } = require('./metaWhatsApp');
 const {
@@ -134,7 +135,12 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: '64kb' }));
+app.use(express.json({
+  limit: '64kb',
+  verify(req, res, buffer) {
+    req.rawBody = Buffer.from(buffer);
+  }
+}));
 
 const getClientIp = (req) => req.ip || req.socket?.remoteAddress || null;
 
@@ -232,6 +238,24 @@ app.get('/api/meta/health', async (req, res) => {
       message: 'Não foi possível verificar a API do WhatsApp agora.'
     });
   }
+});
+
+app.get('/api/meta/webhook', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+  if (process.env.META_WEBHOOK_VERIFY_TOKEN && mode === 'subscribe' && token === process.env.META_WEBHOOK_VERIFY_TOKEN && challenge) {
+    return res.type('text/plain').send(String(challenge));
+  }
+  return res.status(403).json({ ok: false, message: 'Webhook verification failed.' });
+});
+
+app.post('/api/meta/webhook', (req, res) => {
+  if (!verifyMetaSignature(req.rawBody, req.get('x-hub-signature-256'))) {
+    return res.status(401).json({ ok: false, message: 'Invalid signature.' });
+  }
+  log('info', 'meta_webhook_received', { requestId: req.id });
+  return res.json({ ok: true });
 });
 
 app.post('/api/leads', rateLimitLeads, async (req, res) => {
