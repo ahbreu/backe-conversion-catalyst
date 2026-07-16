@@ -19,6 +19,7 @@
 - O banco local usa diretório `0700` e arquivo `0600` em sistemas compatíveis.
 - A CSP restringe scripts a origens explícitas e hashes; o aplicativo não renderiza o formulário em frames externos.
 - Actions são fixadas por SHA e o GitHub usa secret scanning, push protection e Dependabot.
+- O deploy do Worker falha explicitamente se os secrets Cloudflare estiverem ausentes; nunca informa sucesso após pular a publicação.
 
 ## Dados públicos por projeto
 
