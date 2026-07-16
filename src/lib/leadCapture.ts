@@ -171,7 +171,7 @@ export const normalizeLeadPayload = (form: ContactLeadForm, turnstileToken = "")
     environment: import.meta.env.VITE_APP_ENV || "sandbox",
     source: "website",
     formId: "website-contact-form",
-    pageUrl: window.location.href,
+    pageUrl: `${window.location.origin}${window.location.pathname}`,
     pageTitle: document.title,
     utm: getUtmParams(),
     lead: {

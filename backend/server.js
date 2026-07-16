@@ -69,6 +69,15 @@ const isLocalDevOrigin = (origin) => {
 const rateLimitStore = new Map();
 const leadFingerprintStore = new Map();
 
+const isAdminAuthorized = (req) => {
+  const expected = String(process.env.ADMIN_HEALTH_TOKEN || '');
+  const received = String(req.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!expected || !received) return false;
+  const expectedHash = crypto.createHash('sha256').update(expected).digest();
+  const receivedHash = crypto.createHash('sha256').update(received).digest();
+  return crypto.timingSafeEqual(expectedHash, receivedHash);
+};
+
 const log = (level, event, details = {}) => {
   const payload = {
     timestamp: new Date().toISOString(),
@@ -165,7 +174,6 @@ const rateLimitLeads = (req, res, next) => {
     res.setHeader('Retry-After', String(retryAfterSeconds));
     log('warn', 'lead_rate_limited', {
       requestId: req.id,
-      ip: key,
       retryAfterSeconds
     });
 
@@ -183,7 +191,7 @@ const persistLead = async (leadPayload, automationResponse) => {
     return null;
   }
 
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(DATA_DIR, { recursive: true, mode: 0o700 });
 
   const leadRecord = {
     ...leadPayload,
@@ -195,6 +203,7 @@ const persistLead = async (leadPayload, automationResponse) => {
   };
 
   await fs.appendFile(LEADS_FILE, `${JSON.stringify(leadRecord)}\n`, 'utf8');
+  await fs.chmod(LEADS_FILE, 0o600);
 
   return leadRecord;
 };
@@ -216,6 +225,10 @@ app.get('/api/local-leads/health', (req, res) => {
 });
 
 app.get('/api/meta/health', async (req, res) => {
+  if (isProductionEnvironment() && !isAdminAuthorized(req)) {
+    return res.status(404).json({ ok: false, message: 'Rota não encontrada.' });
+  }
+
   try {
     const health = await checkMetaHealth();
     log('info', 'meta_health_ok', {
@@ -260,10 +273,13 @@ app.post('/api/meta/webhook', (req, res) => {
 
 app.post('/api/leads', rateLimitLeads, async (req, res) => {
   try {
+    if (isProductionEnvironment() && !req.get('origin')) {
+      return res.status(403).json({ ok: false, message: 'Origem não autorizada.' });
+    }
+
     if (hasHoneypotValue(req.body)) {
       log('warn', 'lead_honeypot_rejected', {
-        requestId: req.id,
-        ip: getClientIp(req)
+        requestId: req.id
       });
 
       return res.status(400).json({
@@ -434,7 +450,15 @@ app.use((error, req, res, next) => {
     });
   }
 
-  return next(error);
+  log('error', 'unhandled_request_error', {
+    requestId: req.id,
+    message: error?.message || 'Unknown request error.'
+  });
+
+  return res.status(500).json({
+    ok: false,
+    message: 'Não conseguimos processar a solicitação agora.'
+  });
 });
 
 app.listen(PORT, () => {

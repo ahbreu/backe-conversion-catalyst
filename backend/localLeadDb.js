@@ -36,8 +36,16 @@ const getLocalLeadDb = () => {
     db.close();
   }
 
-  fs.mkdirSync(path.dirname(nextDbPath), { recursive: true });
+  fs.mkdirSync(path.dirname(nextDbPath), { recursive: true, mode: 0o700 });
   db = new DatabaseSync(nextDbPath);
+  try {
+    fs.chmodSync(path.dirname(nextDbPath), 0o700);
+    fs.chmodSync(nextDbPath, 0o600);
+  } catch (error) {
+    db.close();
+    db = null;
+    throw error;
+  }
   dbPath = nextDbPath;
 
   db.exec(`

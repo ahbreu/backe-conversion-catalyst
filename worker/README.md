@@ -6,7 +6,7 @@ Backend de produção do formulário. O Worker valida e persiste cada lead no D1
 
 - `POST /api/leads`
 - `GET /health`
-- `GET /api/meta/health`
+- `GET /api/meta/health` (Bearer `ADMIN_HEALTH_TOKEN`)
 - `GET|POST /api/meta/webhook`
 - `GET /api/admin/health` (Bearer token; somente contagens, nunca retorna PII)
 
@@ -38,7 +38,7 @@ Nunca coloque o token da Meta no TOML, GitHub ou frontend como variável `VITE_*
 - `meta_sent`: aceito pela API da Meta, com o `messageId` armazenado.
 - `meta_failed`: envio falhou e aguarda nova tentativa; no máximo 12 tentativas automáticas.
 
-O cron também remove buckets antigos de rate limit e leads com mais de 180 dias. IP e User-Agent não são persistidos no payload. Para consultar falhas sem expor dados pessoais, use `/api/admin/health` com o secret administrativo.
+O cron também remove buckets antigos de rate limit e leads com mais de 180 dias. IP e User-Agent não são persistidos no payload nem registrados nos logs de bloqueio. Em produção, `/api/leads` exige uma origem permitida e Turnstile configurado. Para consultar falhas ou a saúde da Meta sem expor dados pessoais, use o secret administrativo.
 
 ## Automação durável
 

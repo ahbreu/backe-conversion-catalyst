@@ -7,14 +7,31 @@ const ALLOWED_SERVICE_INTERESTS = new Set([
   'automacao', 'sites', 'trafego', 'gestao', 'consultoria', 'outro', 'automation',
   'website', 'traffic', 'management', 'consulting', 'other',
   'diagnóstico estratégico', 'gestão de tráfego', 'identidade visual e design gráfico', 'captação',
-  'diagnóstico gratuito', 'solução personalizada', 'dúvida comercial'
+  'diagnóstico gratuito', 'solução personalizada', 'dúvida comercial',
+  'tráfego pago', 'gestão de redes sociais', 'estratégia & performance',
+  'treinamento & capacitação de vendas', 'branding & identidade visual',
+  'design gráfico & motions', 'criação de sites & landing pages',
+  'captação audiovisual', 'captação com drone', 'whatsapp'
 ]);
 const HTML_TAG_PATTERN = /<[^>]*>/g;
+const CONTROL_CHARACTER_PATTERN = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
-const stripHtml = (value) => String(value ?? '').replace(HTML_TAG_PATTERN, '').trim();
+const stripHtml = (value) => String(value ?? '').replace(HTML_TAG_PATTERN, '').replace(CONTROL_CHARACTER_PATTERN, '').trim();
 const nullableString = (value) => stripHtml(value) || null;
 const requiredString = (value) => stripHtml(value);
+const limitedString = (value, maxLength) => requiredString(value).slice(0, maxLength);
+const limitedNullableString = (value, maxLength) => limitedString(value, maxLength) || null;
+
+const normalizePageUrl = (value) => {
+  try {
+    const url = new URL(requiredString(value));
+    if (!['http:', 'https:'].includes(url.protocol)) return '';
+    return `${url.origin}${url.pathname}`.slice(0, 500);
+  } catch {
+    return '';
+  }
+};
 
 const normalizePhone = (value) => {
   const digits = String(value ?? '').replace(/\D/g, '');
@@ -25,11 +42,11 @@ const normalizePhone = (value) => {
 };
 
 const normalizeUtm = (utm = {}) => ({
-  source: nullableString(utm.source ?? utm.utm_source),
-  medium: nullableString(utm.medium ?? utm.utm_medium),
-  campaign: nullableString(utm.campaign ?? utm.utm_campaign),
-  term: nullableString(utm.term ?? utm.utm_term),
-  content: nullableString(utm.content ?? utm.utm_content)
+  source: limitedNullableString(utm.source ?? utm.utm_source, 200),
+  medium: limitedNullableString(utm.medium ?? utm.utm_medium, 200),
+  campaign: limitedNullableString(utm.campaign ?? utm.utm_campaign, 200),
+  term: limitedNullableString(utm.term ?? utm.utm_term, 200),
+  content: limitedNullableString(utm.content ?? utm.utm_content, 200)
 });
 
 const buildMessage = (payload) => nullableString(payload.lead?.message ?? payload.message) ||
@@ -40,20 +57,20 @@ const buildMessage = (payload) => nullableString(payload.lead?.message ?? payloa
 const normalizeLeadPayload = (payload = {}, context = {}) => {
   const lead = payload.lead || {};
   return {
-    company: requiredString(payload.company) || COMPANY_NAME,
-    environment: requiredString(payload.environment) || APP_ENV,
-    source: requiredString(payload.source) || 'website',
-    formId: requiredString(payload.formId) || context.formId || 'website-contact-form',
-    pageUrl: requiredString(payload.pageUrl) || context.pageUrl || '',
-    pageTitle: requiredString(payload.pageTitle) || context.pageTitle || '',
+    company: limitedString(COMPANY_NAME, 120),
+    environment: limitedString(APP_ENV, 40),
+    source: 'website',
+    formId: limitedString(context.formId || 'website-contact-form', 120),
+    pageUrl: normalizePageUrl(payload.pageUrl || context.pageUrl),
+    pageTitle: limitedString(payload.pageTitle || context.pageTitle, 160),
     utm: normalizeUtm(payload.utm || {}),
     lead: {
-      name: requiredString(lead.name ?? payload.nome ?? payload.name),
-      email: nullableString(lead.email ?? payload.email)?.toLowerCase() || null,
+      name: limitedString(lead.name ?? payload.nome ?? payload.name, 120),
+      email: limitedNullableString(lead.email ?? payload.email, 255)?.toLowerCase() || null,
       phone: normalizePhone(lead.phone ?? payload.whatsapp ?? payload.phone),
-      message: buildMessage(payload),
-      serviceInterest: nullableString(lead.serviceInterest ?? payload.serviceInterest ?? payload.interesse),
-      companyName: nullableString(lead.companyName ?? payload.empresa ?? payload.companyName)
+      message: limitedNullableString(buildMessage(payload), 500),
+      serviceInterest: limitedNullableString(lead.serviceInterest ?? payload.serviceInterest ?? payload.interesse, 120),
+      companyName: limitedNullableString(lead.companyName ?? payload.empresa ?? payload.companyName, 120)
     },
     seller: {
       name: nullableString(payload.seller?.name ?? process.env.DEFAULT_SELLER_NAME),
@@ -137,7 +154,8 @@ const checkMetaHealth = async () => {
   if (!token || !phoneNumberId) throw new Error('Meta WhatsApp is not configured.');
   const version = process.env.META_GRAPH_API_VERSION || 'v23.0';
   const response = await fetch(`https://graph.facebook.com/${version}/${phoneNumberId}?fields=id,display_phone_number`, {
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(Number(process.env.META_REQUEST_TIMEOUT_MS || 10000))
   });
   if (!response.ok) { const error = new Error('Meta WhatsApp healthcheck failed.'); error.status = response.status; throw error; }
   const data = await response.json();
@@ -145,12 +163,15 @@ const checkMetaHealth = async () => {
 };
 
 const verifyTurnstile = async (token, remoteip) => {
-  if (!process.env.TURNSTILE_SECRET_KEY) return { success: true, disabled: true };
+  if (!process.env.TURNSTILE_SECRET_KEY) {
+    return { success: process.env.APP_ENV !== 'production', disabled: true };
+  }
   if (!token || String(token).length > 2048) return { success: false };
   const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ secret: process.env.TURNSTILE_SECRET_KEY, response: token, remoteip })
+    body: JSON.stringify({ secret: process.env.TURNSTILE_SECRET_KEY, response: token, remoteip }),
+    signal: AbortSignal.timeout(10000)
   });
   const result = await response.json();
   const allowedHostnames = new Set(String(process.env.FRONTEND_URL || '').split(',').map((origin) => {

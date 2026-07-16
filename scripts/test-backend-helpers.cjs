@@ -20,11 +20,11 @@ assert.equal(normalizePhone('(11) 99999-9999'), '5511999999999');
 assert.equal(normalizePhone('+55 11 99999-9999'), '5511999999999');
 
 const validPayload = normalizeLeadPayload({
-  company: 'BACKE.co',
-  environment: 'sandbox',
-  source: 'script-test',
-  formId: 'backend-helper-test',
-  pageUrl: 'http://localhost',
+  company: 'Untrusted company',
+  environment: 'untrusted',
+  source: 'untrusted',
+  formId: 'untrusted',
+  pageUrl: 'http://localhost/form?email=private@example.com#secret',
   pageTitle: 'Backend Helper Test',
   lead: {
     name: 'Teste BACKE',
@@ -39,6 +39,28 @@ const validPayload = normalizeLeadPayload({
 });
 
 assert.deepEqual(validateLeadPayload(validPayload), { ok: true });
+assert.equal(validPayload.company, 'BACKE.co');
+assert.equal(validPayload.environment, 'sandbox');
+assert.equal(validPayload.source, 'website');
+assert.equal(validPayload.formId, 'website-contact-form');
+assert.equal(validPayload.pageUrl, 'http://localhost/form');
+
+const constrainedPayload = normalizeLeadPayload({
+  pageTitle: 'x'.repeat(300),
+  utm: { campaign: 'y'.repeat(300) },
+  lead: {
+    name: `Teste\u0000${'z'.repeat(200)}`,
+    phone: '(11) 99999-9999',
+    message: 'm'.repeat(700),
+    serviceInterest: 'Tráfego Pago'
+  }
+});
+assert.equal(constrainedPayload.pageTitle.length, 160);
+assert.equal(constrainedPayload.utm.campaign.length, 200);
+assert.equal(constrainedPayload.lead.name.includes('\u0000'), false);
+assert.equal(constrainedPayload.lead.name.length, 120);
+assert.equal(constrainedPayload.lead.message.length, 500);
+assert.deepEqual(validateLeadPayload(constrainedPayload), { ok: true });
 
 const invalidPayload = normalizeLeadPayload({
   lead: {

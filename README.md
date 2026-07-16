@@ -26,7 +26,7 @@ Rotas do backend:
 - `POST /api/leads`
 - `GET /health`
 - `GET /api/local-leads/health`
-- `GET /api/meta/health`
+- `GET /api/meta/health` (protegido por `ADMIN_HEALTH_TOKEN` em produção)
 
 No ambiente local, leads são persistidos em SQLite antes do envio para a Meta. O caminho padrão fica fora do repositório, em `~/.backe/lead-db/leads.sqlite` no Linux/macOS.
 
