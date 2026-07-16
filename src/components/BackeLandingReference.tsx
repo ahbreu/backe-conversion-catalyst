@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import logoTransparent from "@/assets/logo-backe-transparent.png";
 import {
@@ -11,7 +11,7 @@ import {
 import { API_URL, assertApiUrl } from "@/config/api";
 import ClientsMarquee from "./ClientsMarquee";
 import TurnstileWidget from "./TurnstileWidget";
-import { trackMetaLead } from "@/lib/metaPixel";
+import { META_PIXEL_READY_EVENT, trackMetaEvent, trackMetaLead } from "@/lib/metaPixel";
 import "./BackeLandingReference.css";
 
 const PUBLIC_WHATSAPP_PHONE = String(import.meta.env.VITE_PUBLIC_WHATSAPP_PHONE || "556192240234").replace(/\D/g, "");
@@ -43,6 +43,7 @@ const services = [
     title: "Tráfego Pago",
     description:
       "Gestão de campanhas no Meta Ads e Google Ads com foco em performance. Segmentamos o público certo, no momento certo, com o criativo certo. Chega de queimar verba.",
+    benefit: "Ajuda a transformar investimento em demanda previsível, atraindo pessoas com intenção de compra e mostrando quais campanhas realmente trazem oportunidades.",
   },
   {
     category: "digital",
@@ -51,6 +52,7 @@ const services = [
     title: "Gestão de Redes Sociais",
     description:
       "Calendário editorial estratégico, produção de conteúdo e gestão de comunidade. Transformamos seguidores em clientes com consistência e intenção de marca.",
+    benefit: "Mantém sua marca presente na rotina do público, fortalece confiança antes da compra e cria mais pontos de entrada para conversas comerciais.",
   },
   {
     category: "estrategia",
@@ -59,6 +61,7 @@ const services = [
     title: "Estratégia & Performance",
     description:
       "Planejamento completo com metas claras, análise de dados, relatórios que fazem sentido e otimização constante para escalar o que realmente funciona.",
+    benefit: "Conecta marketing a metas comerciais, reduz decisões no escuro e direciona orçamento e esforço para as iniciativas com maior retorno.",
   },
   {
     category: "estrategia",
@@ -67,6 +70,7 @@ const services = [
     title: "Treinamento & Capacitação de Vendas",
     description:
       "Preparamos seu time comercial com metodologias modernas, scripts de abordagem, técnicas de fechamento e inteligência de mercado para vender mais e melhor.",
+    benefit: "Aumenta a qualidade do atendimento, reduz oportunidades perdidas e dá ao time um processo replicável para conduzir contatos até o fechamento.",
   },
   {
     category: "criativo",
@@ -75,6 +79,7 @@ const services = [
     title: "Branding & Identidade Visual",
     description:
       "Criamos identidades visuais completas: logo, paleta, tipografia e brandbook. Sua marca passa a comunicar quem você é antes mesmo de abrir a boca.",
+    benefit: "Eleva a percepção de valor, diferencia sua empresa dos concorrentes e transmite mais confiança desde o primeiro contato com a marca.",
   },
   {
     category: "criativo",
@@ -83,6 +88,7 @@ const services = [
     title: "Design Gráfico & Motions",
     description:
       "Peças gráficas para digital e impresso, animações em motion graphics e vídeos animados. Conteúdo visual que comunica com impacto e retém atenção.",
+    benefit: "Faz sua comunicação ser percebida mais rápido, melhora a retenção da mensagem e dá consistência visual a campanhas e materiais comerciais.",
   },
   {
     category: "criativo",
@@ -91,6 +97,7 @@ const services = [
     title: "Criação de Sites & Landing Pages",
     description:
       "Sites institucionais e landing pages otimizadas para conversão. Design responsivo, copy persuasivo e integração com ferramentas de automação e CRM.",
+    benefit: "Transforma visitas em oportunidades 24 horas por dia, organiza a captação de contatos e reduz atrito entre o interesse e a conversa comercial.",
   },
   {
     category: "audiovisual",
@@ -99,6 +106,7 @@ const services = [
     title: "Captação Audiovisual",
     description:
       "Produção de vídeos profissionais para campanhas, redes sociais e institucionais. Direção, gravação e edição com padrão de qualidade que eleva sua marca.",
+    benefit: "Demonstra produtos, histórias e diferenciais com mais clareza, aumentando atenção, confiança e capacidade de convencimento da sua comunicação.",
   },
   {
     category: "audiovisual",
@@ -107,6 +115,7 @@ const services = [
     title: "Captação com Drone",
     description:
       "Imagens e vídeos aéreos de alta resolução para imóveis, eventos e campanhas de impacto. Perspectivas únicas que nenhuma câmera convencional consegue entregar.",
+    benefit: "Valoriza espaços, projetos e experiências com uma perspectiva marcante, ajudando sua oferta a se destacar e ser lembrada pelo público.",
   },
 ];
 
@@ -248,6 +257,7 @@ const scrollToSection = (sectionId: string) => {
 
 const BackeLandingReference = () => {
   const [activeCategory, setActiveCategory] = useState("todos");
+  const [flippedService, setFlippedService] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState(0);
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<ContactLeadForm>(initialForm);
@@ -257,6 +267,51 @@ const BackeLandingReference = () => {
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const formStarted = useRef(false);
+
+  useEffect(() => {
+    const sectionIds = ["top", "indicadores", "manifesto", "servicos", "processo", "faq", "contato"];
+    const seen = new Set<string>();
+    const visible = new Set<string>();
+    const timers = new Map<string, number>();
+    const elements = sectionIds.map((id) => document.getElementById(id)).filter((element): element is HTMLElement => Boolean(element));
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const section = entry.target.id;
+        if (!entry.isIntersecting) {
+          visible.delete(section);
+          const timer = timers.get(section);
+          if (timer) window.clearTimeout(timer);
+          timers.delete(section);
+          return;
+        }
+
+        visible.add(section);
+        if (seen.has(section) || timers.has(section)) return;
+        timers.set(section, window.setTimeout(() => {
+          timers.delete(section);
+          if (visible.has(section) && trackMetaEvent("section_view", { section })) {
+            seen.add(section);
+            observer.unobserve(entry.target);
+          }
+        }, 600));
+      });
+    }, { threshold: 0.15 });
+    const observe = () => elements.forEach((element) => {
+      if (!seen.has(element.id)) {
+        observer.unobserve(element);
+        observer.observe(element);
+      }
+    });
+
+    observe();
+    window.addEventListener(META_PIXEL_READY_EVENT, observe);
+    return () => {
+      observer.disconnect();
+      timers.forEach((timer) => window.clearTimeout(timer));
+      window.removeEventListener(META_PIXEL_READY_EVENT, observe);
+    };
+  }, []);
 
   const visibleServices = useMemo(
     () =>
@@ -309,9 +364,15 @@ const BackeLandingReference = () => {
     setTurnstileResetKey((current) => current + 1);
   };
 
-  const selectInterestAndScroll = (interest: string) => {
+  const selectInterestAndScroll = (interest: string, source = "unknown") => {
+    trackMetaEvent("cta_click", { source, destination: "contact_form" });
     setForm((currentForm) => ({ ...currentForm, interesse: interest }));
     scrollToSection("contato");
+  };
+
+  const trackFormStart = () => {
+    if (formStarted.current) return;
+    if (trackMetaEvent("form_start", { form: "diagnostico" })) formStarted.current = true;
   };
 
   const validateStepOne = () => {
@@ -378,15 +439,21 @@ const BackeLandingReference = () => {
 
   const handleStepOne = () => {
     if (validateStepOne()) {
+      trackMetaEvent("form_step_complete", { form: "diagnostico", step: 1 });
       setStep(2);
       setSubmitMessage(null);
+    } else {
+      trackMetaEvent("form_validation_error", { form: "diagnostico", step: 1 });
     }
   };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
+    trackMetaEvent("form_submit_attempt", { form: "diagnostico" });
+
     if (!validateFinalStep()) {
+      trackMetaEvent("form_validation_error", { form: "diagnostico", step: 2 });
       return;
     }
 
@@ -420,6 +487,7 @@ const BackeLandingReference = () => {
       setTurnstileToken("");
       toast.success("Recebemos sua solicitação. Um especialista da BACKE.co vai entrar em contato em breve.");
     } catch (error) {
+      trackMetaEvent("form_submit_error", { form: "diagnostico" });
       const message =
         error instanceof Error
           ? error.message
@@ -438,11 +506,11 @@ const BackeLandingReference = () => {
           <img src={logoTransparent} alt="BACKE.co" />
         </a>
         <div className="br-nav-links">
-          <a href="#servicos">Serviços</a>
-          <a href="#processo">Processo</a>
-          <a href="#contato">Contato</a>
+          <a href="#servicos" onClick={() => trackMetaEvent("cta_click", { source: "nav_services", destination: "services" })}>Serviços</a>
+          <a href="#processo" onClick={() => trackMetaEvent("cta_click", { source: "nav_process", destination: "process" })}>Processo</a>
+          <a href="#contato" onClick={() => trackMetaEvent("cta_click", { source: "nav_contact", destination: "contact_form" })}>Contato</a>
         </div>
-        <button className="br-btn-main" type="button" onClick={() => selectInterestAndScroll("Diagnóstico gratuito")}>
+        <button className="br-btn-main" type="button" onClick={() => selectInterestAndScroll("Diagnóstico gratuito", "nav")}>
           Diagnóstico gratuito
         </button>
       </nav>
@@ -463,10 +531,10 @@ const BackeLandingReference = () => {
           duas coisas ao mesmo tempo. A Backe foi criada exatamente pra isso.
         </p>
         <div className="br-hero-btns br-fade br-d3">
-          <button className="br-btn-main br-btn-large" type="button" onClick={() => selectInterestAndScroll("Diagnóstico gratuito")}>
+          <button className="br-btn-main br-btn-large" type="button" onClick={() => selectInterestAndScroll("Diagnóstico gratuito", "hero_primary")}>
             Quero crescer com a Backe
           </button>
-          <button className="br-btn-ghost" type="button" onClick={() => scrollToSection("servicos")}>
+          <button className="br-btn-ghost" type="button" onClick={() => { trackMetaEvent("cta_click", { source: "hero_services", destination: "services" }); scrollToSection("servicos"); }}>
             Ver nossos serviços
           </button>
         </div>
@@ -478,7 +546,7 @@ const BackeLandingReference = () => {
 
       <ClientsMarquee />
 
-      <section className="br-stats" aria-label="Indicadores BACKE.co">
+      <section id="indicadores" className="br-stats" aria-label="Indicadores BACKE.co">
         {stats.map((stat) => (
           <div className="br-stat" key={stat.label}>
             <strong className="br-gradient-text">{stat.value}</strong>
@@ -497,7 +565,7 @@ const BackeLandingReference = () => {
         </div>
       </div>
 
-      <section className="br-manifesto">
+      <section id="manifesto" className="br-manifesto">
         <div className="br-manifesto-inner">
           <div>
             <div className="br-label">Nossa visão</div>
@@ -538,7 +606,11 @@ const BackeLandingReference = () => {
                 className={`br-filter ${activeCategory === category.id ? "active" : ""}`}
                 key={category.id}
                 type="button"
-                onClick={() => setActiveCategory(category.id)}
+                onClick={() => {
+                  setActiveCategory(category.id);
+                  setFlippedService(null);
+                  trackMetaEvent("service_filter", { category: category.id });
+                }}
               >
                 {category.label}
               </button>
@@ -546,17 +618,53 @@ const BackeLandingReference = () => {
           </div>
 
           <div className="br-service-grid">
-            {visibleServices.map((service) => (
-              <article className="br-service-card" key={service.title}>
-                <div className="br-service-icon">{service.icon}</div>
-                <div className="br-service-cat">{service.categoryLabel}</div>
-                <h3>{service.title}</h3>
-                <p>{service.description}</p>
-                <button className="br-service-more" type="button" onClick={() => selectInterestAndScroll(service.title)}>
-                  Saiba mais
-                </button>
-              </article>
-            ))}
+            {visibleServices.map((service) => {
+              const isFlipped = flippedService === service.title;
+              return (
+                <article className={`br-service-card ${isFlipped ? "is-flipped" : ""}`} key={service.title}>
+                  <div className="br-service-card-inner">
+                    <div className="br-service-face br-service-front" aria-hidden={isFlipped}>
+                      <div className="br-service-icon">{service.icon}</div>
+                      <div className="br-service-cat">{service.categoryLabel}</div>
+                      <h3>{service.title}</h3>
+                      <p>{service.description}</p>
+                      <button
+                        className="br-service-more"
+                        type="button"
+                        tabIndex={isFlipped ? -1 : 0}
+                        onClick={() => {
+                          setFlippedService(service.title);
+                          trackMetaEvent("service_card_flip", { service: service.title, face: "benefit" });
+                        }}
+                      >
+                        Como isso ajuda
+                      </button>
+                    </div>
+                    <div className="br-service-face br-service-back" aria-hidden={!isFlipped}>
+                      <div className="br-service-cat">Impacto no seu negócio</div>
+                      <h3>{service.title}</h3>
+                      <p>{service.benefit}</p>
+                      <div className="br-service-actions">
+                        <button className="br-service-back-button" type="button" tabIndex={isFlipped ? 0 : -1} onClick={() => setFlippedService(null)}>
+                          Voltar
+                        </button>
+                        <button
+                          className="br-service-more"
+                          type="button"
+                          tabIndex={isFlipped ? 0 : -1}
+                          onClick={() => {
+                            trackMetaEvent("service_interest", { service: service.title });
+                            selectInterestAndScroll(service.title, "service_card");
+                          }}
+                        >
+                          Quero aplicar isso
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
 
           <div className="br-cta-banner">
@@ -567,7 +675,7 @@ const BackeLandingReference = () => {
                 pelo seu negócio.
               </p>
             </div>
-            <button className="br-btn-main br-nowrap" type="button" onClick={() => selectInterestAndScroll("Solução personalizada")}>
+            <button className="br-btn-main br-nowrap" type="button" onClick={() => selectInterestAndScroll("Solução personalizada", "services_banner")}>
               Falar com especialista
             </button>
           </div>
@@ -619,7 +727,10 @@ const BackeLandingReference = () => {
                   <button
                     className={`br-faq-question ${isOpen ? "open" : ""}`}
                     type="button"
-                    onClick={() => setOpenFaq(isOpen ? -1 : index)}
+                    onClick={() => {
+                      setOpenFaq(isOpen ? -1 : index);
+                      if (!isOpen) trackMetaEvent("faq_open", { position: index + 1 });
+                    }}
                     aria-expanded={isOpen}
                   >
                     <span>{item.question}</span>
@@ -633,7 +744,7 @@ const BackeLandingReference = () => {
 
           <div className="br-faq-cta">
             <p>Ainda tem dúvida? A gente responde na hora.</p>
-            <button className="br-btn-main" type="button" onClick={() => selectInterestAndScroll("Dúvida comercial")}>
+            <button className="br-btn-main" type="button" onClick={() => selectInterestAndScroll("Dúvida comercial", "faq")}>
               Falar com um especialista
             </button>
           </div>
@@ -664,7 +775,7 @@ const BackeLandingReference = () => {
               </div>
             </div>
 
-            <form className="br-form-card" onSubmit={handleSubmit} aria-busy={isSubmitting}>
+            <form className="br-form-card" onSubmit={handleSubmit} onFocus={trackFormStart} aria-busy={isSubmitting}>
               <input
                 className="br-honeypot"
                 type="text"
@@ -815,7 +926,7 @@ const BackeLandingReference = () => {
                               Tentar novamente
                             </button>
                             {whatsappHref && (
-                              <a className="br-wpp-btn br-wpp-btn-inline" href={whatsappHref} target="_blank" rel="noreferrer">
+                              <a className="br-wpp-btn br-wpp-btn-inline" href={whatsappHref} target="_blank" rel="noreferrer" onClick={() => trackMetaEvent("contact_whatsapp", { source: "form_error" })}>
                                 Falar no WhatsApp
                               </a>
                             )}
@@ -838,7 +949,7 @@ const BackeLandingReference = () => {
                   </p>
                   <p className="br-success-muted">Confira seu e-mail e WhatsApp.</p>
                   {whatsappHref ? (
-                    <a className="br-wpp-btn" href={whatsappHref} target="_blank" rel="noreferrer">
+                    <a className="br-wpp-btn" href={whatsappHref} target="_blank" rel="noreferrer" onClick={() => trackMetaEvent("contact_whatsapp", { source: "form_success" })}>
                       Chamar no WhatsApp agora
                     </a>
                   ) : (
@@ -857,13 +968,13 @@ const BackeLandingReference = () => {
         <img src={logoTransparent} alt="BACKE.co" />
         <p>© 2026 BACKE.co. Todos os direitos reservados.</p>
         <div className="br-foot-links">
-          <a href="https://www.instagram.com/backe.co/" target="_blank" rel="noreferrer">Instagram</a>
+          <a href="https://www.instagram.com/backe.co/" target="_blank" rel="noreferrer" onClick={() => trackMetaEvent("contact_instagram", { source: "footer" })}>Instagram</a>
           {whatsappGeneralHref ? (
-            <a href={whatsappGeneralHref} target="_blank" rel="noreferrer">
+            <a href={whatsappGeneralHref} target="_blank" rel="noreferrer" onClick={() => trackMetaEvent("contact_whatsapp", { source: "footer" })}>
               WhatsApp
             </a>
           ) : (
-            <button type="button" onClick={() => selectInterestAndScroll("WhatsApp")}>
+            <button type="button" onClick={() => selectInterestAndScroll("WhatsApp", "footer_fallback")}>
               WhatsApp
             </button>
           )}
@@ -876,6 +987,7 @@ const BackeLandingReference = () => {
         target="_blank"
         rel="noreferrer"
         aria-label="Falar no WhatsApp"
+        onClick={() => trackMetaEvent("contact_whatsapp", { source: "floating_button" })}
       >
         <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
           <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>

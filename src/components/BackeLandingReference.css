@@ -508,15 +508,73 @@
 
 .br-service-card {
   position: relative;
-  display: flex;
-  min-height: 330px;
-  flex-direction: column;
-  overflow: hidden;
+  min-height: 400px;
   border: 1px solid var(--br-border);
   border-radius: 20px;
   background: var(--br-bg-3);
-  padding: 36px 30px;
+  perspective: 1200px;
   transition: border-color 0.25s, transform 0.3s;
+}
+
+.br-service-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  transform-style: preserve-3d;
+  transition: transform 0.58s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.br-service-card.is-flipped .br-service-card-inner {
+  transform: rotateY(180deg);
+}
+
+.br-service-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 36px 30px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.br-service-back {
+  justify-content: center;
+  border-radius: 19px;
+  background:
+    radial-gradient(circle at 80% 10%, rgba(255, 64, 79, 0.17), transparent 42%),
+    var(--br-bg-3);
+  transform: rotateY(180deg);
+}
+
+.br-service-back p {
+  flex: 0;
+  margin-bottom: 30px;
+  color: var(--br-text-1);
+  font-size: 14px;
+}
+
+.br-service-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.br-service-back-button {
+  border: 0;
+  background: transparent;
+  color: var(--br-text-3);
+  cursor: pointer;
+  padding: 9px 4px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.br-service-back-button:hover {
+  color: var(--br-white);
 }
 
 .br-service-card::after {
@@ -537,6 +595,12 @@
 
 .br-service-card:hover::after {
   width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .br-service-card-inner {
+    transition: none;
+  }
 }
 
 .br-service-icon {
@@ -1390,10 +1454,18 @@
     line-height: 1.2;
   }
 
-  .br-service-card,
   .br-cta-banner,
   .br-form-card {
     padding-inline: 20px;
+  }
+
+  .br-service-face {
+    padding-inline: 20px;
+  }
+
+  .br-service-card,
+  .br-service-card-inner {
+    min-height: 430px;
   }
 
   .br-submit-row {
