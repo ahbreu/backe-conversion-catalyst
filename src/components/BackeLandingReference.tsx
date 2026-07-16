@@ -11,6 +11,7 @@ import {
 import { API_URL, assertApiUrl } from "@/config/api";
 import ClientsMarquee from "./ClientsMarquee";
 import TurnstileWidget from "./TurnstileWidget";
+import { trackMetaLead } from "@/lib/metaPixel";
 import "./BackeLandingReference.css";
 
 const PUBLIC_WHATSAPP_PHONE = String(import.meta.env.VITE_PUBLIC_WHATSAPP_PHONE || "556192240234").replace(/\D/g, "");
@@ -415,6 +416,7 @@ const BackeLandingReference = () => {
       }
 
       setIsSubmitted(true);
+      trackMetaLead();
       setTurnstileToken("");
       toast.success("Recebemos sua solicitação. Um especialista da BACKE.co vai entrar em contato em breve.");
     } catch (error) {

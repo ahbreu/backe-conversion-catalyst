@@ -8,6 +8,7 @@ Landing page institucional da BACKE Creative, focada em conversão e captura con
 - Express para desenvolvimento local.
 - Cloudflare Worker + D1 + Workflows + Cron Trigger em produção.
 - API oficial do WhatsApp Cloud da Meta para contato automático.
+- Meta Pixel carregado somente após consentimento para medir `PageView` e leads persistidos.
 - GitHub Pages para hospedar o site.
 
 ## Desenvolvimento

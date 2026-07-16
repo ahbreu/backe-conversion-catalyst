@@ -9,6 +9,7 @@ import {
 } from "@/lib/leadCapture";
 import { API_URL, assertApiUrl } from "@/config/api";
 import TurnstileWidget from "@/components/TurnstileWidget";
+import { trackMetaLead } from "@/lib/metaPixel";
 
 const faturamentoOptions = [
   "Até R$ 10.000",
@@ -125,6 +126,7 @@ const ContactForm = () => {
       }
 
       toast.success(SUCCESS_MESSAGE);
+      trackMetaLead();
       setSubmitStatus({ type: "success", message: SUCCESS_MESSAGE });
       setForm(initialForm);
       setTurnstileToken("");
