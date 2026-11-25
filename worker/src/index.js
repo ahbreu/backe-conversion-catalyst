@@ -13,6 +13,8 @@ const ALLOWED_SERVICE_INTERESTS = new Set([
   "treinamento & capacitação de vendas", "branding & identidade visual",
   "design gráfico & motions", "criação de sites & landing pages",
   "captação audiovisual", "captação com drone", "whatsapp",
+  // opções do site novo (Astro)
+  "sites & landing pages", "captação audiovisual / drone", "design gráfico & motion",
 ]);
 const HTML_TAG_PATTERN = /<[^>]*>/g;
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
