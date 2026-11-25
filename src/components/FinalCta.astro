@@ -1,0 +1,71 @@
+---
+import Button from './Button.astro';
+// Chamada final antes do rodapé (no lugar antigo do formulário). O botão abre a gaveta com o formulário.
+---
+<section class="fin" aria-labelledby="fin-title">
+  <div class="fin__glow" aria-hidden="true"></div>
+  <div class="wrap fin__in">
+    <h2 class="h2 fin__title" id="fin-title" data-reveal>
+      Pronto para descobrir onde seu marketing está <em class="hl">perdendo dinheiro</em>?
+    </h2>
+    <p class="fin__lede" data-reveal style="--d:.08s">Diagnóstico gratuito, sem compromisso. Leva menos de 1 minuto.</p>
+    <div class="fin__act" data-reveal style="--d:.16s">
+      <Button href="#diagnostico" data-cta="final">Quero meu diagnóstico gratuito</Button>
+    </div>
+  </div>
+</section>
+
+<style>
+  .fin {
+    position: relative;
+    overflow: hidden;
+    /* clip: corta igual, mas o navegador não consegue rolar a seção para o lado ao focar um campo */
+    overflow: clip;
+    padding-block: clamp(4.5rem, 10vw, 8rem);
+    background: #000;
+    text-align: center;
+  }
+  /* luz do sol nascendo por baixo, discreta */
+  .fin__glow {
+    position: absolute;
+    left: 50%;
+    bottom: -60%;
+    width: min(1100px, 160vw);
+    aspect-ratio: 1;
+    translate: -50% 0;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgb(254 67 77 / 0.22), rgb(241 143 52 / 0.08) 40%, transparent 68%);
+    pointer-events: none;
+  }
+  .fin__in {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: clamp(16px, 2vw, 24px);
+  }
+  .fin__title {
+    max-width: 20ch;
+    margin: 0 auto;
+    text-wrap: balance;
+  }
+  .fin__lede {
+    margin: 0;
+    color: #c9c4be;
+    font-size: clamp(1rem, 1.3vw, 1.15rem);
+  }
+  .fin__act {
+    margin-top: 8px;
+  }
+  @media (max-width: 900px) {
+    .fin {
+      padding-block: 3.5rem 4rem;
+    }
+    .fin__act,
+    .fin__act :global(.btn) {
+      width: 100%;
+    }
+    .fin__act :global(.btn) {
+      justify-content: space-between;
+    }
+  }
+</style>

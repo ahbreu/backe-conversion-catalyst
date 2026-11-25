@@ -1,0 +1,291 @@
+---
+import { asset } from '../lib/url';
+import Symbol from './Symbol.astro';
+import { CONTACT } from '../data/content';
+import { whatsappLink } from '../lib/lead';
+import { META_PIXEL_ID, PIXEL_REQUIRES_CONSENT } from '../config/site';
+const consentLink = Boolean(META_PIXEL_ID) && PIXEL_REQUIRES_CONSENT;
+const year = new Date().getFullYear();
+---
+<footer class="ftr">
+  <div class="wrap">
+    <div class="ftr__top">
+      <a class="ftr__big" href="#diagnostico" data-cta="footer">
+        <span class="ftr__sunset" aria-hidden="true">
+          <span class="ftr__sun"></span>
+          <svg class="ftr__ground" viewBox="0 0 1440 200" preserveAspectRatio="none" focusable="false">
+            <!-- o mesmo horizonte em curva da seção Método -->
+            <path class="ftr__ground-fill" d="M0 70 C 260 70 380 18 640 22 C 900 26 1020 92 1240 84 C 1330 81 1400 66 1440 58 L1440 200 L0 200 Z"></path>
+            <path class="ftr__ground-line" d="M0 70 C 260 70 380 18 640 22 C 900 26 1020 92 1240 84 C 1330 81 1400 66 1440 58"></path>
+          </svg>
+        </span>
+        <span>Vamos</span>
+        <span>conversar?</span>
+      </a>
+      <div class="ftr__cols">
+        <div>
+          <p class="ftr__h">Contato</p>
+          <ul>
+            <li><a href={whatsappLink(CONTACT.whatsappText)} target="_blank" rel="noopener" data-cta="footer-whatsapp">WhatsApp {CONTACT.whatsappDisplay}</a></li>
+            {CONTACT.email && <li><a href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a></li>}
+            <li><a href={CONTACT.instagram} target="_blank" rel="noopener" data-cta="footer-instagram">Instagram {CONTACT.instagramHandle}</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="ftr__h">Atendimento</p>
+          <ul>
+            {CONTACT.hours.map((h) => <li>{h}</li>)}
+            <li>{CONTACT.city}, atendendo todo o Brasil</li>
+          </ul>
+        </div>
+        <div>
+          <p class="ftr__h">Navegação</p>
+          <ul>
+            <li><a href="#servicos">Serviços</a></li>
+            <li><a href="#metodo">Método</a></li>
+            <li><a href="#faq">Perguntas frequentes</a></li>
+            <li><a href="#diagnostico">Diagnóstico gratuito</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="ftr__mark">
+      <Symbol class="ftr__sym" label="BACKE.co" />
+      <p class="ftr__tag">Estratégia com criatividade.</p>
+    </div>
+
+    <div class="ftr__bottom">
+      <p>© {year} BACKE.co. Todos os direitos reservados.</p>
+      <div class="ftr__legal">
+        <a href={asset('privacidade.html')}>Política de Privacidade</a>
+        {consentLink && <button type="button" class="ftr__consent" data-consent-reopen>Preferências de privacidade</button>}
+      </div>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .ftr__consent {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .ftr {
+    position: relative;
+    background: var(--black);
+    padding-top: clamp(5rem, 10vw, 8rem);
+    /* espaço para o botão flutuante do WhatsApp não cobrir os links do fim da página */
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    overflow: hidden;
+    /* clip: corta igual, mas o navegador não consegue rolar a seção para o lado ao focar um campo */
+    overflow: clip;
+  }
+  .ftr__top {
+    display: grid;
+    grid-template-columns: 1.1fr 1.4fr;
+    gap: 48px;
+    align-items: end;
+  }
+  /* pôr do sol atrás do “Vamos conversar?”: --set vem de public/sol.js (0 → 1 conforme o rodapé entra) */
+  .ftr__sunset {
+    --sun-size: clamp(170px, 22vw, 360px);
+    position: absolute;
+    z-index: -1;
+    left: 0;
+    right: 0;
+    bottom: 0.06em;
+    height: var(--sun-size);
+    pointer-events: none;
+    clip-path: inset(-100vh -100vw calc(var(--sun-size) * -0.2) -100vw);
+  }
+  .ftr__sun {
+    position: absolute;
+    left: 62%;
+    bottom: 0;
+    width: var(--sun-size);
+    height: var(--sun-size);
+    margin-left: calc(var(--sun-size) / -2);
+    border-radius: 50%;
+    background: var(--sun);
+    box-shadow: 0 0 50px rgb(254 67 77 / 0.4);
+    transform: translateY(calc(50% - 85% * (1 - var(--set, 1))));
+    will-change: transform;
+  }
+  .ftr__ground {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: calc(var(--sun-size) * 0.7);
+    top: calc(100% - var(--sun-size) * 0.7 * 0.25);
+    overflow: visible;
+    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
+    mask-image: linear-gradient(90deg, #000 88%, transparent);
+  }
+  .ftr__ground-fill {
+    fill: #000;
+  }
+  .ftr__ground-line {
+    fill: none;
+    stroke: url(#sun-v);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+  }
+  .ftr__big {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: clamp(3.2rem, 8vw, 7.5rem);
+    line-height: 0.9;
+    letter-spacing: -0.05em;
+    text-decoration: none;
+  }
+  .ftr__big span:last-child {
+    transition: transform 0.6s var(--ease-out);
+  }
+  .ftr__big:hover span:last-child {
+    transform: translateX(16px);
+  }
+  .ftr__cols {
+    /* acima do horizonte do pôr do sol, que é um elemento posicionado */
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+  }
+  .ftr__h {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--mute-2);
+    margin-bottom: 14px;
+  }
+  .ftr__cols ul {
+    display: grid;
+    gap: 8px;
+    font-size: 0.95rem;
+    color: var(--mute);
+  }
+  .ftr__cols a {
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .ftr__cols a:hover {
+    color: var(--text);
+  }
+  .ftr__mark {
+    position: relative;
+    margin-top: clamp(4rem, 9vw, 8rem);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .ftr__sym {
+    width: 160px;
+    height: auto;
+    filter: drop-shadow(0 10px 30px rgb(254 67 77 / 0.3));
+  }
+  .ftr__mark img {
+    width: min(58vw, 720px);
+    height: auto;
+  }
+  .ftr__tag {
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-size: clamp(1.2rem, 2.4vw, 2rem);
+    color: var(--mute);
+    text-align: right;
+    padding-bottom: 1.5%;
+  }
+  .ftr__bottom {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px 24px;
+    font-size: 0.85rem;
+    color: var(--mute-2);
+  }
+  .ftr__legal {
+    display: flex;
+    gap: 20px;
+  }
+  .ftr__legal a,
+  .ftr__legal button {
+    color: var(--mute);
+    background: none;
+    border: 0;
+    padding: 0;
+    text-decoration: none;
+    font-size: inherit;
+  }
+  .ftr__legal a:hover,
+  .ftr__legal button:hover {
+    color: var(--text);
+  }
+  @media (max-width: 960px) {
+    .ftr__top {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 640px) {
+    .ftr__sunset {
+      --sun-size: min(56vw, 260px);
+    }
+    .ftr__sun {
+      left: 66%;
+    }
+    .ftr__cols {
+      grid-template-columns: 1fr 1fr;
+      /* abaixo da linha do horizonte do pôr do sol */
+      margin-top: 28px;
+    }
+    .ftr__cols > div:last-child {
+      display: none;
+    }
+    .ftr__mark {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .ftr__sym {
+      width: 96px;
+    }
+    .ftr__tag {
+      text-align: left;
+    }
+  }
+  @media (max-width: 900px) {
+    .ftr__big {
+      justify-self: center;
+      text-align: center;
+    }
+  }
+  @media (max-width: 640px) {
+    .ftr {
+      padding-top: 3.5rem;
+    }
+    .ftr__top {
+      gap: 32px;
+    }
+    .ftr__mark {
+      margin-top: 2.5rem;
+      gap: 12px;
+    }
+    .ftr__bottom {
+      margin-top: 28px;
+    }
+  }
+</style>

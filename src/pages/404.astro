@@ -1,0 +1,81 @@
+---
+import Base from '../layouts/Base.astro';
+import Button from '../components/Button.astro';
+import Symbol from '../components/Symbol.astro';
+import { asset } from '../lib/url';
+import { whatsappLink } from '../lib/lead';
+import { CONTACT } from '../data/content';
+---
+<Base title="Página não encontrada | BACKE.co" description="Esta página não existe ou mudou de endereço." noindex>
+  <main class="nf" id="conteudo">
+    <div class="nf__glow" aria-hidden="true"></div>
+    <Symbol class="nf__sym" />
+    <p class="eyebrow">Erro 404</p>
+    <h1 class="nf__title">Essa página saiu do <em class="hl">mapa</em>.</h1>
+    <p class="nf__lede">O endereço pode ter mudado ou ter sido digitado errado. Volte para o início ou fale com a gente.</p>
+    <div class="nf__act">
+      <Button href={asset('')}>Voltar para o início</Button>
+      <a class="link-arrow" href={whatsappLink(CONTACT.whatsappText)} target="_blank" rel="noopener">
+        Falar no WhatsApp
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"></path></svg>
+      </a>
+    </div>
+  </main>
+</Base>
+
+<style>
+  .nf {
+    position: relative;
+    min-height: 100svh;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 18px;
+    padding: 48px var(--gutter);
+    overflow: hidden;
+    background: #000;
+    text-align: center;
+  }
+  .nf__glow {
+    position: absolute;
+    left: 50%;
+    bottom: -55%;
+    width: min(1000px, 160vw);
+    aspect-ratio: 1;
+    translate: -50% 0;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgb(254 67 77 / 0.22), rgb(241 143 52 / 0.08) 40%, transparent 68%);
+    pointer-events: none;
+  }
+  .nf > :not(.nf__glow) {
+    position: relative;
+  }
+  .nf :global(.nf__sym) {
+    width: 84px;
+    height: auto;
+    filter: drop-shadow(0 10px 30px rgb(254 67 77 / 0.3));
+  }
+  .nf__title {
+    margin: 0;
+    max-width: 16ch;
+    font-family: var(--f-display);
+    font-size: clamp(2.4rem, 6vw, 4.6rem);
+    font-weight: 600;
+    line-height: 0.98;
+    letter-spacing: -0.045em;
+    text-wrap: balance;
+  }
+  .nf__lede {
+    margin: 0;
+    max-width: 40ch;
+    color: #c9c4be;
+  }
+  .nf__act {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 18px 28px;
+    margin-top: 10px;
+  }
+</style>

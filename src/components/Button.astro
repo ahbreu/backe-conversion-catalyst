@@ -1,0 +1,27 @@
+---
+import Arrow from './Arrow.astro';
+interface Props {
+  href?: string;
+  variant?: 'primary' | 'ghost';
+  size?: 'md' | 'sm';
+  block?: boolean;
+  type?: 'button' | 'submit';
+  class?: string;
+  [k: string]: unknown;
+}
+const { href, variant = 'primary', size = 'md', block, type = 'button', class: cls, ...rest } = Astro.props;
+const classes = ['btn', `btn--${variant}`, size === 'sm' && 'btn--sm', block && 'btn--block', cls].filter(Boolean).join(' ');
+---
+{
+  href ? (
+    <a class={classes} href={href} {...rest}>
+      <span class="btn__label"><slot /></span>
+      <span class="btn__disc"><Arrow /></span>
+    </a>
+  ) : (
+    <button class={classes} type={type} {...rest}>
+      <span class="btn__label"><slot /></span>
+      <span class="btn__disc"><Arrow /></span>
+    </button>
+  )
+}

@@ -1,0 +1,161 @@
+---
+import '../styles/global.css';
+import { createHash } from 'node:crypto';
+import { SYMBOL_PATH } from '../lib/logo-paths';
+import { asset, absolute, IS_PREVIEW } from '../lib/url';
+import { API_ORIGIN, CLOUDFLARE_WEB_ANALYTICS_TOKEN, CONTACT_EMAIL, WHATSAPP_E164 } from '../config/site';
+import Consent from '../components/Consent.astro';
+import fontDisplay from '@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-opsz-normal.woff2?url';
+import fontSerif from '@fontsource/instrument-serif/files/instrument-serif-latin-400-italic.woff2?url';
+
+// marca JS ativo e detecta quando a página roda num quadro esticado até a altura do conteúdo
+// (acontece em prévias embutidas no iPhone): aí as unidades de tela não valem e usamos a altura real do aparelho
+const jsFlag =
+  "var d=document.documentElement;d.classList.add('js');var emb=false;try{emb=window.self!==window.top}catch(e){emb=true}var last='';function t(){var s=screen.height||innerHeight;var tall=innerHeight>s*1.25&&innerHeight>1000;d.classList.toggle('frame-tall',tall);var h=emb&&(tall||innerHeight<s*0.6)?s:Math.min(innerHeight,s);var key=innerWidth+'/'+tall+'/'+(emb?0:h);if(key!==last){last=key;d.style.setProperty('--vh',h/100+'px');d.style.setProperty('--sh',h+'px')}}t();addEventListener('resize',t)";
+// Proteção contra clickjacking: o GitHub Pages não envia frame-ancestors/X-Frame-Options, então em produção
+// a página se esconde quando aberta dentro de um quadro de outro site. Prévias (PUBLIC_PREVIEW) continuam embutíveis.
+const frameGuard = IS_PREVIEW
+  ? ''
+  : ";try{if(window.self!==window.top&&window.top.location.origin!==location.origin)throw 0}catch(e){d.setAttribute('hidden','')}";
+const inlineScript = jsFlag + frameGuard;
+const jsFlagHash = `'sha256-${createHash('sha256').update(inlineScript).digest('base64')}'`;
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** páginas que não devem ir para o Google (ex.: 404) */
+  noindex?: boolean;
+}
+const {
+  title = 'Backe | Agência de marketing em Brasília: estratégia, tráfego, marca e audiovisual',
+  noindex = false,
+  description = 'Agência de marketing em Brasília que une estratégia, tráfego pago, branding e produção audiovisual num plano só. Peça seu diagnóstico gratuito e descubra onde seu marketing está perdendo dinheiro.',
+} = Astro.props;
+
+const site = absolute('').replace(/\/$/, '');
+const canonical = absolute('');
+const ogImage = absolute('og-image.png');
+
+// CSP herdada do site atual, ajustada: scripts só do próprio domínio + Turnstile, Meta Pixel e Cloudflare Analytics.
+// O endereço do Worker de leads vem da configuração (VITE_API_URL).
+const csp = [
+  "default-src 'self'",
+  `script-src 'self' ${jsFlagHash} https://challenges.cloudflare.com https://connect.facebook.net https://static.cloudflareinsights.com`,
+  `connect-src 'self' ${API_ORIGIN} https://challenges.cloudflare.com https://www.facebook.com https://cloudflareinsights.com`.replace(/\s+/g, ' '),
+  'frame-src https://challenges.cloudflare.com',
+  "img-src 'self' data: https://www.facebook.com https://connect.facebook.net",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "worker-src 'none'",
+  "manifest-src 'self'",
+  'upgrade-insecure-requests',
+].join('; ');
+
+const ld = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+    '@id': `${site}/#localbusiness`,
+    name: 'BACKE.co',
+    description:
+      'Agência de marketing estratégico e criativo. Estratégia & performance, tráfego pago, gestão de redes sociais, branding, criação de sites, design, audiovisual e captação com drone.',
+    url: site,
+    ...(WHATSAPP_E164 && { telephone: WHATSAPP_E164 }),
+    ...(CONTACT_EMAIL && { email: CONTACT_EMAIL }),
+    image: ogImage,
+    logo: absolute('backe-symbol.svg'),
+    priceRange: '$$',
+    areaServed: { '@type': 'Country', name: 'Brasil' },
+    sameAs: ['https://www.instagram.com/backe.co/'],
+    address: { '@type': 'PostalAddress', addressLocality: 'Brasília', addressRegion: 'DF', addressCountry: 'BR' },
+    geo: { '@type': 'GeoCoordinates', latitude: -15.7934, longitude: -47.8822 },
+    openingHoursSpecification: [
+      { '@type': 'OpeningHoursSpecification', dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], opens: '09:00', closes: '18:00' },
+      { '@type': 'OpeningHoursSpecification', dayOfWeek: ['Saturday'], opens: '09:00', closes: '13:00' },
+    ],
+    paymentAccepted: ['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto', 'Transferência Bancária'],
+    currenciesAccepted: 'BRL',
+  },
+];
+---
+
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta http-equiv="Content-Security-Policy" content={csp} />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content="BACKE.co" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="canonical" href={canonical} />
+    {(IS_PREVIEW || noindex) && <meta name="robots" content="noindex, nofollow" />}
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="BACKE.co" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="BACKE.co: estratégia com criatividade" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <!-- capa do hero = imagem LCP; o vídeo só entra depois do load -->
+    {!noindex && <link rel="preload" as="image" type="image/webp" href={asset('video/reel-mobile-poster.webp')} media="(max-width: 900px)" fetchpriority="high" />}
+    {!noindex && <link rel="preload" as="image" type="image/webp" href={asset('video/reel-desktop-poster.webp')} media="(min-width: 901px)" fetchpriority="high" />}
+    <link rel="preload" href={fontDisplay} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={fontSerif} as="font" type="font/woff2" crossorigin />
+    <link rel="icon" href={asset('favicon.svg')} type="image/svg+xml" />
+    <link rel="icon" href={asset('favicon-32.png')} sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href={asset('apple-touch-icon.png')} />
+    <link rel="manifest" href={asset('site.webmanifest')} />
+
+    <script type="application/ld+json" set:html={JSON.stringify(ld)} />
+    <script is:inline set:html={inlineScript} />
+  </head>
+  <body>
+    <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+    <!-- Sprite: símbolo oficial (vetorizado do arquivo da marca) e degradê “nascer do sol” -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="sun-v" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#F18F34"></stop>
+          <stop offset=".5" stop-color="#EA6832"></stop>
+          <stop offset="1" stop-color="#FE434D"></stop>
+        </linearGradient>
+        <path id="b-symbol" fill-rule="evenodd" d={SYMBOL_PATH}></path>
+        <clipPath id="clip-stem" clipPathUnits="userSpaceOnUse">
+          <polygon points="-10,-10 72,-10 72,294 90,299 -10,346"></polygon>
+        </clipPath>
+        <clipPath id="clip-bowl" clipPathUnits="userSpaceOnUse">
+          <polygon points="72,-10 520,-10 520,520 -10,520 -10,346 90,299 72,294"></polygon>
+        </clipPath>
+      </defs>
+    </svg>
+
+    <slot />
+    <Consent />
+    {
+      CLOUDFLARE_WEB_ANALYTICS_TOKEN && (
+        <script
+          is:inline
+          defer
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon={JSON.stringify({ token: CLOUDFLARE_WEB_ANALYTICS_TOKEN, spa: false })}
+        />
+      )
+    }
+  </body>
+</html>

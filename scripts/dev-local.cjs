@@ -3,7 +3,7 @@ const http = require('http');
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const backendPort = Number(process.env.PORT || 3001);
-const frontendPort = Number(process.env.VITE_DEV_PORT || 8080);
+const frontendPort = 8080; // fixo em package.json (dev:frontend); o backend libera CORS para esta porta
 const backendUrl = `http://localhost:${backendPort}/health`;
 const processes = [];
 
@@ -105,7 +105,7 @@ process.on('SIGTERM', () => shutdown(0));
   await waitForBackend();
 
   console.log(`Starting frontend on http://localhost:${frontendPort}`);
-  spawnProcess('frontend', npmCommand, ['run', 'dev:frontend', '--', '--host', 'localhost', '--port', String(frontendPort)]);
+  spawnProcess('frontend', npmCommand, ['run', 'dev:frontend', '--', '--host', 'localhost']);
 })().catch((error) => {
   console.error(error.message);
   shutdown(1);

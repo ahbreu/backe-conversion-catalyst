@@ -1,0 +1,545 @@
+---
+import { STATS } from '../data/content';
+import Vbox from './Vbox.astro';
+import { asset } from '../lib/url';
+const mask = `--mask:url(${asset('backe-symbol.svg')})`;
+// três números de prova no lugar do botão (os mesmos da seção Resultados)
+const fmt = (v: number, d: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+// placar: cada dígito vira uma coluna 0–9; os tempos (em s) saem daqui para o CSS
+const T0 = 1.6; // começo, ~1,6 s depois do título
+const proof = STATS.slice(0, 3).map((n, i) => {
+  const text = fmt(n.value, n.decimals);
+  let d = 0;
+  const chars = [...text].map((ch) => (/\d/.test(ch) ? { ch, digit: true, j: d++ } : { ch, digit: false, j: Math.max(0, d - 1) }));
+  const start = T0 + i * 0.15;
+  const settle = start + (d - 1) * 0.08 + 1.1; // quando o último dígito assenta (a curva freia no fim)
+  return { ...n, text, chars, i, start, settle };
+});
+---
+<!--
+  Hero: o símbolo da Backe como janela. O vídeo próprio da Backe passa dentro do “b”
+  e a frase fica contida no miolo da letra. Ao rolar, a câmera mergulha no disco do “b”
+  até o vídeo tomar a tela.
+-->
+<section class="hero" id="topo" aria-labelledby="hero-title" data-hero style={mask}>
+  <div class="hero__stick">
+    <div class="hero__halo" aria-hidden="true"></div>
+    <div class="hero__media" data-hero-media>
+      <Vbox base="reel" mode="hero" id="hero-vbox" class="hero__vbox" externalPlay />
+      <div class="hero__tint"></div>
+    </div>
+
+    <div class="hero__copy" data-hero-copy>
+      <!-- TÍTULO PROVISÓRIO: aguardando definição da Backe -->
+      <h1 class="hero__title" id="hero-title">
+        <span class="line"><span data-hero-line style="--i:0">Estratégia</span></span>
+        <span class="line"><span data-hero-line style="--i:1">com <em class="hero__em">criatividade</em>.</span></span>
+      </h1>
+      <div class="hero__more">
+        <p class="hero__lede" data-hero-in style="--i:1">
+          Marketing para empresas que querem crescer com método, não com sorte. Estratégia, mídia, marca e imagem num plano só.
+        </p>
+        <ul class="hero__proof" aria-label="A Backe em números">
+          {
+            proof.map((n) => (
+              <li class="hp" style={`--n:${n.i};--t0:${n.start}s;--t:${n.settle.toFixed(2)}s`}>
+                <b class="hp__num">
+                  <span class="sr-only">{`${n.prefix}${n.text}${n.suffix}`}</span>
+                  <span class="hp__vis" aria-hidden="true">
+                    {n.prefix && <i class="hp__fix">{n.prefix}</i>}
+                    {n.chars.map((c) =>
+                      c.digit ? (
+                        <span class="hp__col" style={`--v:${c.ch};--j:${c.j}`}>
+                          <span class="hp__strip">
+                            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((k) => (
+                              <span>{k}</span>
+                            ))}
+                          </span>
+                        </span>
+                      ) : (
+                        <span class="hp__sep" style={`--j:${c.j}`}>{c.ch}</span>
+                      ),
+                    )}
+                    {n.suffix && <i class="hp__fix">{n.suffix}</i>}
+                  </span>
+                </b>
+                <span class="hp__lbl">{n.label}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+
+    <p class="hero__after" data-hero-after aria-hidden="true">
+      Criatividade sem estratégia não <em class="hl">escala</em>. Estratégia sem criatividade não é <em class="hl">lembrada</em>.
+    </p>
+
+    <button class="vbox__play hero__play" type="button" aria-label="Reproduzir vídeo" data-play-for="hero-vbox" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"></path></svg>
+    </button>
+
+    <!-- setinha no canto: convida a rolar; o toque leva até o fim do efeito do “b” -->
+    <a class="hero__cue" href="#hero-fim" data-hero-in style="--i:4" aria-label="Rolar para ver mais">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M6 13l6 6 6-6"></path></svg>
+    </a>
+  </div>
+  <!-- marcadores invisíveis: “já rolou um pouco” (botões fixos aparecem) e o fim do efeito (destino da setinha) -->
+  <span class="hero__mark" data-hero-mark aria-hidden="true"></span>
+  <span class="hero__end" id="hero-fim" aria-hidden="true"></span>
+</section>
+
+<style>
+  .hero {
+    /* tamanho do símbolo e onde fica o miolo do “b” (frações do quadro 504x506 do vetor) */
+    --S0: max(104vw, calc(var(--vh, 1svh) * 168));
+    --ax: 0.476;
+    --ay: 0.613;
+    --cx: 50vw;
+    --cy: calc(var(--vh, 1svh) * 50);
+    position: relative;
+    height: calc(var(--vh, 1svh) * 230);
+    background: #000;
+  }
+  .hero__stick {
+    position: sticky;
+    top: 0;
+    height: calc(var(--vh, 1svh) * 100);
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .hero__media,
+  .hero__halo {
+    position: absolute;
+    inset: 0;
+    -webkit-mask-image: var(--mask);
+    mask-image: var(--mask);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: var(--S, var(--S0)) auto;
+    mask-size: var(--S, var(--S0)) auto;
+    -webkit-mask-position: calc(var(--cx) - var(--axz, var(--ax)) * var(--S, var(--S0))) calc(var(--cy) - var(--ayz, var(--ay)) * var(--S, var(--S0)) * 1.004);
+    mask-position: calc(var(--cx) - var(--axz, var(--ax)) * var(--S, var(--S0))) calc(var(--cy) - var(--ayz, var(--ay)) * var(--S, var(--S0)) * 1.004);
+  }
+  .hero.is-open .hero__media {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  /* halo: o próprio símbolo no degradê da marca, desfocado atrás do vídeo */
+  .hero__halo {
+    background: linear-gradient(180deg, var(--sun-1), var(--sun-2) 50%, var(--sun-3));
+    filter: blur(28px);
+    opacity: 0.55;
+    transform: scale(1.01);
+  }
+  .hero__media :global(.hero__vbox) {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+  }
+  /* sobre o disco do “b”, abaixo do miolo onde está a frase */
+  .hero__play {
+    left: calc(var(--cx) + var(--S0) * 0.074);
+    top: calc(var(--cy) + var(--S0) * 0.268);
+    z-index: 3;
+  }
+  .hero__tint {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgb(0 0 0 / 0.15), rgb(0 0 0 / 0.35)),
+      linear-gradient(0deg, rgb(254 67 77 / 0.18), transparent 50%);
+    opacity: var(--tint, 1);
+  }
+
+  /* a frase dentro do miolo do “b” */
+  .hero__copy {
+    position: absolute;
+    left: var(--cx);
+    top: var(--cy);
+    translate: -50% -50%;
+    width: calc(var(--S0) * 0.43);
+    max-width: calc(100vw - 2 * var(--gutter));
+    text-align: center;
+    z-index: 2;
+    will-change: opacity, transform;
+  }
+  .hero__title {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: min(calc(var(--S0) * 0.05), 8.5vw);
+    line-height: 0.9;
+    letter-spacing: -0.05em;
+    font-variation-settings: 'opsz' 96;
+  }
+  .hero__title .line {
+    display: block;
+    overflow: hidden;
+    padding-bottom: 0.08em;
+    margin-bottom: -0.08em;
+  }
+  .hero__title .line > span {
+    display: inline-block;
+    background: linear-gradient(180deg, #fff 0%, #fff 50%, #ffdcc4 85%, #ffa36b 110%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    padding-bottom: 0.04em;
+  }
+  /* o span da linha usa background-clip:text, então o destaque leva o próprio degradê do sol */
+  .hero__title .hero__em {
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: transparent;
+    background: linear-gradient(180deg, var(--sun-1), var(--sun-2) 55%, var(--sun-3));
+    -webkit-background-clip: text;
+    background-clip: text;
+    text-shadow: none;
+    filter: drop-shadow(0 0 28px rgb(254 67 77 / 0.35));
+    padding-right: 0.06em;
+  }
+  .hero__more {
+    display: grid;
+    justify-items: center;
+    gap: 22px;
+    margin-top: 18px;
+  }
+  .hero__lede {
+    max-width: 34ch;
+    color: #c9c4be;
+    font-size: clamp(0.98rem, 1.15vw, 1.1rem);
+    line-height: 1.55;
+    text-wrap: balance;
+  }
+  /* números de prova logo abaixo do texto: placar que roda até o valor */
+  .hero__proof {
+    display: flex;
+    justify-content: center;
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .hp {
+    position: relative;
+    padding-inline: clamp(14px, 1.6vw, 22px);
+    text-align: center;
+  }
+  /* divisória em degradê que se desenha */
+  .hp + .hp::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 6%;
+    bottom: 6%;
+    width: 1px;
+    background: linear-gradient(transparent, rgb(241 143 52 / 0.7), transparent);
+  }
+  .hp__num {
+    display: block;
+    font-family: var(--f-display);
+    font-size: clamp(1.9rem, 2.6vw, 2.5rem);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  .hp__vis {
+    display: inline-flex;
+    align-items: flex-end;
+    transition: transform 0.4s var(--ease-out), text-shadow 0.4s;
+  }
+  .hp__fix {
+    display: inline-block;
+    font-style: normal;
+    color: var(--sun-2);
+    transform-origin: 50% 80%;
+  }
+  /* cada dígito: coluna 0–9 numa máscara de 1em; parada no valor */
+  .hp__col {
+    display: inline-block;
+    height: 1em;
+    overflow: hidden;
+  }
+  .hp__strip {
+    display: flex;
+    flex-direction: column;
+    transform: translateY(calc(var(--v) * -1em));
+  }
+  .hp__strip > span {
+    display: block;
+    height: 1em;
+    line-height: 1;
+  }
+  .hp__lbl {
+    display: block;
+    max-width: 11ch;
+    margin: 6px auto 0;
+    font-size: 0.8rem;
+    line-height: 1.3;
+    color: #b9b3ad;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .hp:hover .hp__vis {
+      transform: translateY(-3px);
+      text-shadow: 0 0 18px rgb(254 67 77 / 0.45);
+    }
+  }
+  /* entrada (sem “reduzir movimento”): o valor final é o estado normal; as animações só preenchem o começo */
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .hp__strip {
+      animation: hp-roll 1.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+      animation-delay: calc(var(--t0) + var(--j) * 0.08s);
+    }
+    :global(.js) .hp__sep {
+      animation: hp-fade 0.4s ease-out backwards;
+      animation-delay: calc(var(--t0) + var(--j) * 0.08s + 0.3s);
+    }
+    :global(.js) .hp__fix {
+      animation: hp-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+      animation-delay: var(--t);
+    }
+    :global(.js) .hp__num {
+      animation: hp-glow 1.4s ease-out backwards;
+      animation-delay: var(--t);
+    }
+    :global(.js) .hp + .hp::before {
+      animation: hp-line 0.9s var(--ease-out) backwards;
+      animation-delay: calc(var(--t0) + 0.9s);
+    }
+    :global(.js) .hp__lbl {
+      animation: hp-lbl 0.7s var(--ease-out) backwards;
+      animation-delay: calc(1.6s + 0.5s + var(--n) * 0.12s);
+    }
+  }
+  @keyframes hp-roll {
+    from {
+      transform: translateY(1em);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+  }
+  @keyframes hp-fade {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes hp-pop {
+    from {
+      transform: scale(0.4);
+      opacity: 0;
+    }
+  }
+  @keyframes hp-glow {
+    0% {
+      text-shadow: 0 0 0 rgb(254 67 77 / 0);
+    }
+    35% {
+      text-shadow: 0 0 22px rgb(254 67 77 / 0.75);
+    }
+    100% {
+      text-shadow: 0 0 0 rgb(254 67 77 / 0);
+    }
+  }
+  @keyframes hp-line {
+    from {
+      transform: scaleY(0);
+    }
+  }
+  @keyframes hp-lbl {
+    from {
+      transform: translateY(8px);
+      opacity: 0;
+    }
+  }
+  /* setinha no canto: anel laranja girando e a seta descendo */
+  .hero__cue {
+    position: absolute;
+    right: var(--gutter);
+    bottom: calc(22px + env(safe-area-inset-bottom));
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    color: var(--text);
+    text-decoration: none;
+    background: rgb(0 0 0 / 0.4);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    transition: opacity 0.5s var(--ease-out), translate 0.5s var(--ease-out);
+  }
+  .hero__cue::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--sun-1), var(--sun-3) 30%, transparent 55%);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1px));
+    animation: cue-spin 2.8s linear infinite;
+  }
+  .hero__cue svg {
+    width: 18px;
+    height: 18px;
+    animation: cue-bob 1.8s var(--ease-in-out) infinite;
+  }
+  .hero.is-moved .hero__cue {
+    opacity: 0;
+    translate: 0 12px;
+    pointer-events: none;
+  }
+  @keyframes cue-spin {
+    to {
+      transform: rotate(1turn);
+    }
+  }
+  @keyframes cue-bob {
+    0%,
+    100% {
+      transform: translateY(-3px);
+    }
+    50% {
+      transform: translateY(4px);
+    }
+  }
+  .hero__mark,
+  .hero__end {
+    position: absolute;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    pointer-events: none;
+  }
+  /* “rolou um pouco”: 1/5 de tela */
+  .hero__mark {
+    top: calc(var(--sh, 100svh) * 0.2);
+  }
+  /* fim do efeito: o topo deste marcador no topo da tela = última tela do hero */
+  .hero__end {
+    top: calc(100% - var(--sh, 100svh));
+    scroll-margin-top: 0;
+  }
+  .hero__after {
+    position: absolute;
+    left: var(--gutter);
+    right: var(--gutter);
+    bottom: clamp(3rem, calc(var(--vh, 1svh) * 12), 7rem);
+    max-width: 18ch;
+    font-family: var(--f-display);
+    font-size: clamp(2.2rem, 5.4vw, 5.4rem);
+    font-weight: 600;
+    line-height: 0.95;
+    letter-spacing: -0.045em;
+    text-wrap: balance;
+    opacity: 0;
+    z-index: 2;
+    /* só texto: invisível no começo, não pode roubar o toque do botão do hero que fica embaixo */
+    pointer-events: none;
+    text-shadow: 0 10px 50px rgb(0 0 0 / 0.5);
+  }
+  .hero__after .hl {
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: var(--sun-2);
+    text-shadow:
+      0 2px 30px rgb(0 0 0 / 0.6),
+      0 0 24px rgb(254 67 77 / 0.35);
+  }
+
+  /* entrada: o “b” acende e a frase sobe */
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .hero__media {
+      animation: hero-open 1.8s var(--ease-out) both;
+    }
+    :global(.js) .hero__halo {
+      animation: hero-halo 2.4s var(--ease-out) both;
+    }
+    /* o título é a imagem LCP: aparece já na primeira pintura (sem entrada escondida por máscara) */
+    :global(.js) [data-hero-in] {
+      animation: hero-in 1s var(--ease-out) both;
+      animation-delay: calc(0.6s + var(--i) * 0.09s);
+    }
+  }
+  @keyframes hero-open {
+    from {
+      opacity: 0;
+      transform: scale(1.06);
+    }
+  }
+  @keyframes hero-halo {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes hero-line {
+    from {
+      transform: translateY(105%);
+    }
+  }
+  @keyframes hero-in {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+  }
+
+  @media (max-width: 900px) {
+    /* celular: o “b” inteiro com o vídeo, a frase no miolo e o texto logo abaixo da letra */
+    .hero {
+      --S0: 124vw;
+      --cx: calc(55vw + 10px);
+      --cy: calc(var(--vh, 1svh) * 38);
+      height: calc(var(--vh, 1svh) * 155);
+    }
+    .hero__copy {
+      left: calc(50vw + 2vw);
+      width: calc(var(--S0) * 0.39);
+      text-shadow: 0 2px 24px rgb(0 0 0 / 0.6);
+    }
+    .hero__title {
+      font-size: min(7.4vw, 2.2rem);
+    }
+    .hero__more {
+      position: absolute;
+      left: calc(50% - 2vw); /* centro da tela: a frase está em 52vw */
+      top: calc(50% + var(--S0) * 0.39 + 22px);
+      translate: -50% 0;
+      width: calc(100vw - 2 * var(--gutter));
+      margin: 0;
+      gap: 18px;
+    }
+    .hero__lede {
+      font-size: 0.98rem;
+    }
+    .hp__num {
+      font-size: 1.75rem;
+    }
+    .hp {
+      padding-inline: 12px;
+    }
+    .hp__lbl {
+      font-size: 0.72rem;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero__cue::before,
+    .hero__cue svg {
+      animation: none;
+    }
+    .hero {
+      height: auto;
+    }
+    .hero__stick {
+      position: relative;
+    }
+  }
+</style>

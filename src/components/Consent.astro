@@ -1,0 +1,113 @@
+---
+/**
+ * Aviso de privacidade do Meta Pixel (LGPD). Só aparece quando há Pixel configurado e o
+ * consentimento é exigido (VITE_META_PIXEL_REQUIRE_CONSENT diferente de "false").
+ * Usa a mesma chave do site anterior (`backe_marketing_consent`): quem já escolheu não vê de novo.
+ */
+import { META_PIXEL_ID, PIXEL_REQUIRES_CONSENT } from '../config/site';
+import { asset } from '../lib/url';
+const enabled = Boolean(META_PIXEL_ID) && PIXEL_REQUIRES_CONSENT;
+---
+
+{
+  enabled && (
+    <>
+      <aside class="consent" data-consent role="dialog" aria-labelledby="consent-t" hidden>
+        <p class="consent__t" id="consent-t">Privacidade e medição</p>
+        <p class="consent__p">
+          Usamos o Meta Pixel para medir campanhas somente com sua permissão. O site e o formulário funcionam
+          normalmente se você recusar. Veja a <a href={asset('privacidade.html')} target="_blank" rel="noopener">Política de Privacidade</a>.
+        </p>
+        <div class="consent__a">
+          <button type="button" class="consent__b" data-consent-choice="rejected">Recusar</button>
+          <button type="button" class="consent__b consent__b--ok" data-consent-choice="accepted">Aceitar</button>
+        </div>
+      </aside>
+    </>
+  )
+}
+
+<script>
+  import { readConsent, saveConsent } from '../lib/tracking';
+
+  const box = document.querySelector<HTMLElement>('[data-consent]');
+  if (box) {
+    const open = (on: boolean) => {
+      box.hidden = !on;
+    };
+    open(readConsent() === null);
+    box.querySelectorAll<HTMLButtonElement>('[data-consent-choice]').forEach((b) =>
+      b.addEventListener('click', () => {
+        saveConsent(b.dataset.consentChoice as 'accepted' | 'rejected');
+        open(false);
+      }),
+    );
+    // "Preferências de privacidade" no rodapé reabre o aviso
+    document.querySelectorAll('[data-consent-reopen]').forEach((b) => b.addEventListener('click', () => open(true)));
+  }
+</script>
+
+<style>
+  .consent {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    z-index: 120;
+    max-width: 560px;
+    margin-inline: auto;
+    padding: 20px 22px;
+    border: 1px solid var(--line-strong);
+    border-radius: 20px;
+    background: rgb(10 10 10 / 0.94);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 20px 60px rgb(0 0 0 / 0.5);
+    font-family: var(--f-body);
+    color: var(--text);
+  }
+  .consent[hidden] {
+    display: none;
+  }
+  .consent__t {
+    margin: 0 0 6px;
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 1rem;
+  }
+  .consent__p {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: var(--mute);
+  }
+  .consent__p a {
+    color: var(--sun-1);
+  }
+  .consent__a {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .consent__b {
+    min-height: 44px;
+    padding: 0 20px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text);
+    font: 600 0.875rem var(--f-body);
+    cursor: pointer;
+  }
+  .consent__b--ok {
+    border-color: transparent;
+    background: var(--orange);
+    color: var(--black);
+  }
+  .consent__b:focus-visible,
+  .consent__p a:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 3px;
+  }
+</style>

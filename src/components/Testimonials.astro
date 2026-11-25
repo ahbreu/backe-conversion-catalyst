@@ -1,0 +1,363 @@
+---
+import { asset } from '../lib/url';
+
+/**
+ * Depoimentos. Cada item pode ser áudio (player próprio) ou, no futuro, vídeo.
+ * No celular a lista vira carrossel quando houver mais de um.
+ */
+interface Audio {
+  id: string;
+  name: string;
+  role: string;
+  logo: string;
+  m4a: string;
+  ogg: string;
+  duration: number;
+  /** alturas da onda sonora (0 a 1) */
+  peaks: number[];
+  /** resumo (não é citação literal, por isso sem aspas) */
+  summary: string;
+  track: string;
+}
+
+const items: Audio[] = [
+  {
+    id: 'sidney',
+    name: 'Sidney',
+    role: 'Empresário · Grupo Nossa Galera',
+    logo: 'clientes/nossa.webp',
+    m4a: 'audio/depoimento-sidney.m4a',
+    ogg: 'audio/depoimento-sidney.ogg',
+    duration: 28,
+    peaks: [0.86,0.84,0.58,0.59,0.45,0.41,0.74,0.66,0.82,0.82,0.03,0.82,0.83,0.57,0.61,0.55,0.38,0.68,0.83,0.83,0.82,0.75,0.71,0.75,0.61,0.44,0.05,0.85,0.82,0.83,0.84,0.56,0.84,0.71,0.83,0.59,0.78,0.71,0.82,0.53,0.62,0.37,0.86,0.83,0.86,0.13,0.44,0.84,0.83,0.31,1.0,0.77,0.84,0.23,0.36,0.81,0.82,0.84,0.68,0.42],
+    summary:
+      'Em 28 segundos, Sidney conta como a venda de ingressos e a retirada de cortesias melhoraram depois que a Backe entrou na operação.',
+    track: 'Nossa Galera',
+  },
+];
+const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+---
+<section class="tst" id="depoimentos" aria-labelledby="tst-title">
+  <div class="wrap">
+    <header class="tst__head">
+      <p class="eyebrow">Depoimentos</p>
+      <h2 class="tst__title" id="tst-title">Quem trabalha com a Backe fala por <em class="hl">nós</em>.</h2>
+    </header>
+
+    <div class="tst__list">
+      {
+        items.map((t) => (
+          <article class="voice" data-voice data-card data-track={t.track} aria-label={`Depoimento de ${t.name}`}>
+            <header class="voice__who">
+              <span class="voice__avatar">
+                <img src={asset(t.logo)} alt="" width="44" height="44" loading="lazy" decoding="async" />
+              </span>
+              <span>
+                <strong class="voice__name">{t.name}</strong>
+                <span class="voice__role">{t.role}</span>
+              </span>
+            </header>
+
+            <div class="voice__player">
+              <button class="voice__btn" type="button" aria-label="Ouvir depoimento" data-voice-btn>
+                <svg class="voice__i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor" /></svg>
+                <svg class="voice__i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" /></svg>
+              </button>
+              <div
+                class="voice__wave"
+                role="slider"
+                tabindex="0"
+                aria-label="Posição do áudio"
+                aria-valuemin="0"
+                aria-valuemax={t.duration}
+                aria-valuenow="0"
+                aria-valuetext={`0:00 de ${fmt(t.duration)}`}
+                data-voice-wave
+              >
+                {t.peaks.map((h) => (
+                  <i style={`--h:${Math.max(0.12, h)}`} />
+                ))}
+              </div>
+              <span class="voice__time" data-voice-time>
+                0:00 / {fmt(t.duration)}
+              </span>
+              <audio preload="none" data-voice-audio data-duration={t.duration}>
+                <source src={asset(t.m4a)} type="audio/mp4" />
+                <source src={asset(t.ogg)} type="audio/ogg; codecs=opus" />
+              </audio>
+            </div>
+
+            <p class="voice__summary">{t.summary}</p>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<script>
+  import { track } from '../lib/tracking';
+
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+  document.querySelectorAll<HTMLElement>('[data-voice]').forEach((card) => {
+    const audio = card.querySelector<HTMLAudioElement>('[data-voice-audio]')!;
+    const btn = card.querySelector<HTMLButtonElement>('[data-voice-btn]')!;
+    const wave = card.querySelector<HTMLElement>('[data-voice-wave]')!;
+    const time = card.querySelector<HTMLElement>('[data-voice-time]')!;
+    const bars = Array.from(wave.children) as HTMLElement[];
+    let total = Number(audio.dataset.duration) || 0;
+    let tracked = false;
+
+    const paint = () => {
+      const t = audio.currentTime || 0;
+      const f = total ? Math.min(1, t / total) : 0;
+      const n = Math.round(f * bars.length);
+      bars.forEach((b, i) => b.classList.toggle('on', i < n));
+      time.textContent = `${fmt(t)} / ${fmt(total)}`;
+      wave.setAttribute('aria-valuenow', String(Math.floor(t)));
+      wave.setAttribute('aria-valuetext', `${fmt(t)} de ${fmt(total)}`);
+    };
+    const setPlaying = (on: boolean) => {
+      card.classList.toggle('is-playing', on);
+      btn.setAttribute('aria-label', on ? 'Pausar' : 'Ouvir depoimento');
+    };
+
+    btn.addEventListener('click', () => {
+      if (audio.paused) {
+        // pausa os outros depoimentos
+        document.querySelectorAll<HTMLAudioElement>('[data-voice-audio]').forEach((a) => a !== audio && a.pause());
+        audio.play().catch(() => setPlaying(false));
+        if (!tracked) {
+          tracked = true;
+          track('depoimento_play', { cliente: card.dataset.track }); // só dispara com consentimento
+        }
+      } else audio.pause();
+    });
+    audio.addEventListener('play', () => setPlaying(true));
+    audio.addEventListener('pause', () => setPlaying(false));
+    audio.addEventListener('ended', () => {
+      setPlaying(false);
+      audio.currentTime = 0;
+      paint();
+    });
+    audio.addEventListener('timeupdate', paint);
+    audio.addEventListener('loadedmetadata', () => {
+      if (Number.isFinite(audio.duration) && audio.duration > 0) total = audio.duration;
+      paint();
+    });
+
+    // tocar nas barras leva o áudio até aquele ponto
+    const seekTo = (f: number) => {
+      const go = () => {
+        audio.currentTime = Math.max(0, Math.min(1, f)) * (total || audio.duration || 0);
+        paint();
+      };
+      if (audio.readyState >= 1) go();
+      else {
+        audio.addEventListener('loadedmetadata', go, { once: true });
+        audio.load();
+      }
+    };
+    wave.addEventListener('click', (e) => {
+      const r = wave.getBoundingClientRect();
+      seekTo((e.clientX - r.left) / r.width);
+    });
+    wave.addEventListener('keydown', (e) => {
+      const step = e.key === 'ArrowRight' ? 5 : e.key === 'ArrowLeft' ? -5 : 0;
+      if (!step && e.key !== 'Home' && e.key !== 'End') return;
+      e.preventDefault();
+      const t = e.key === 'Home' ? 0 : e.key === 'End' ? total : (audio.currentTime || 0) + step;
+      seekTo(t / (total || 1));
+    });
+  });
+</script>
+
+<style>
+  .tst {
+    position: relative;
+    padding-block: clamp(4.5rem, 9vw, 7rem);
+    background: var(--black);
+  }
+  .tst__head {
+    display: grid;
+    gap: 16px;
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+  }
+  .tst__title {
+    max-width: 16ch;
+    font-family: var(--f-display);
+    font-size: clamp(2.2rem, 4.8vw, 4.6rem);
+    font-weight: 600;
+    line-height: 0.96;
+    letter-spacing: -0.045em;
+    font-variation-settings: 'opsz' 96;
+    text-wrap: balance;
+  }
+  .tst__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr));
+    gap: 16px;
+  }
+  .voice {
+    display: grid;
+    gap: 22px;
+    padding: clamp(22px, 3vw, 32px);
+    border-radius: 28px;
+    background:
+      radial-gradient(70% 90% at 100% 0%, rgb(254 67 77 / 0.16), transparent 60%),
+      linear-gradient(160deg, #1b1918, #0e0d0c 70%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.08),
+      inset 0 0 0 1px rgb(255 255 255 / 0.06);
+  }
+  .voice__who {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .voice__avatar {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #0a0908;
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+    overflow: hidden;
+  }
+  .voice__avatar img {
+    width: 70%;
+    height: 70%;
+    object-fit: contain;
+  }
+  .voice__name {
+    display: block;
+    font-family: var(--f-display);
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .voice__role {
+    display: block;
+    font-size: 0.88rem;
+    color: var(--mute);
+  }
+  .voice__player {
+    display: grid;
+    grid-template-columns: 64px 1fr auto;
+    align-items: center;
+    gap: 16px;
+  }
+  .voice__btn {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--sun);
+    color: #1a0b05;
+    box-shadow: 0 12px 34px -10px rgb(254 67 77 / 0.7);
+    cursor: pointer;
+    transition: transform 0.3s var(--ease-out);
+  }
+  .voice__btn:hover {
+    transform: scale(1.05);
+  }
+  .voice__btn svg {
+    width: 26px;
+    height: 26px;
+  }
+  .voice__i-play {
+    margin-left: 3px;
+  }
+  .voice__i-pause,
+  .voice.is-playing .voice__i-play {
+    display: none;
+  }
+  .voice.is-playing .voice__i-pause {
+    display: block;
+  }
+  .voice__wave {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 48px;
+    cursor: pointer;
+    border-radius: 6px;
+  }
+  .voice__wave i {
+    flex: 1;
+    height: calc(var(--h) * 100%);
+    border-radius: 2px;
+    background: rgb(255 255 255 / 0.2);
+    transition: background 0.2s;
+  }
+  .voice__wave i.on {
+    background: var(--sun-2);
+  }
+  .voice__time {
+    font-size: 0.85rem;
+    color: var(--mute);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .voice__summary {
+    color: #d6d1cb;
+    font-size: 1.02rem;
+    line-height: 1.55;
+    max-width: 52ch;
+  }
+
+  @media (max-width: 900px) {
+    .tst {
+      padding-block: 3.25rem;
+    }
+    .tst__head {
+      justify-items: center;
+      text-align: center;
+    }
+    .tst__title {
+      margin-inline: auto;
+    }
+    /* preparado para vários depoimentos: carrossel */
+    .tst__list {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+    }
+    .voice {
+      flex: 0 0 100%;
+      scroll-snap-align: center;
+      gap: 18px;
+    }
+    .voice__player {
+      grid-template-columns: 64px 1fr;
+      gap: 12px;
+    }
+    .voice__time {
+      grid-column: 2;
+      margin-top: -6px;
+    }
+    .voice__wave {
+      height: 40px;
+      gap: 1.5px;
+    }
+  }
+  /* computador: com um depoimento só, o card fica no centro (no celular não muda) */
+  @media (min-width: 901px) {
+    .tst__list {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .voice {
+      width: 100%;
+      max-width: 640px;
+      margin-inline: auto;
+    }
+  }
+</style>

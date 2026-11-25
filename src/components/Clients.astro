@@ -1,0 +1,89 @@
+---
+import { asset } from '../lib/url';
+import { CLIENTS } from '../data/content';
+---
+<section class="clients" aria-label="Marcas que já trabalharam com a Backe">
+  <div class="clients__label wrap">
+    <p>Marcas que já cresceram com a gente</p>
+  </div>
+  <div class="clients__track" data-marquee>
+    {
+      [0, 1].map((copy) => (
+        <ul class="clients__row" aria-hidden={copy === 1 ? 'true' : undefined}>
+          {CLIENTS.map((c) => (
+            <li>
+              <img src={asset(`clientes/${c.file}.webp`)} alt={copy === 0 ? c.name : ''} loading="lazy" decoding="async" height="160" />
+            </li>
+          ))}
+        </ul>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  .clients {
+    position: relative;
+    padding-block: 40px 48px;
+    background: #0b0807;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    overflow: hidden;
+    /* clip: corta igual, mas o navegador não consegue rolar a seção para o lado ao focar um campo */
+    overflow: clip;
+  }
+  .clients__label p {
+    font-size: 0.75rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--mute-2);
+    margin-bottom: 28px;
+  }
+  .clients__track {
+    display: flex;
+    width: max-content;
+    animation: marquee 60s linear infinite;
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  }
+  .clients:hover .clients__track {
+    animation-play-state: paused;
+  }
+  .clients__row {
+    display: flex;
+    align-items: center;
+    gap: clamp(48px, 6vw, 96px);
+    padding-right: clamp(48px, 6vw, 96px);
+  }
+  .clients__row img {
+    height: 44px;
+    width: auto;
+    max-width: 150px;
+    object-fit: contain;
+    opacity: 0.55;
+    transition: opacity 0.3s;
+  }
+  .clients__row li:hover img {
+    opacity: 1;
+  }
+  @keyframes marquee {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .clients__track {
+      animation: none;
+      flex-wrap: wrap;
+      width: auto;
+    }
+    .clients__row[aria-hidden] {
+      display: none;
+    }
+    .clients__row {
+      flex-wrap: wrap;
+      justify-content: center;
+      padding-inline: var(--gutter);
+      row-gap: 32px;
+    }
+  }
+</style>

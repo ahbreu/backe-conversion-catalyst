@@ -1,0 +1,56 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Hero from '../components/Hero.astro';
+import Clients from '../components/Clients.astro';
+import Cost from '../components/Cost.astro';
+import Fit from '../components/Fit.astro';
+import Reel from '../components/Reel.astro';
+import Services from '../components/Services.astro';
+import Differentials from '../components/Differentials.astro';
+import Proof from '../components/Proof.astro';
+import Testimonials from '../components/Testimonials.astro';
+import Sunrise from '../components/Sunrise.astro';
+import Process from '../components/Process.astro';
+import Faq from '../components/Faq.astro';
+import FinalCta from '../components/FinalCta.astro';
+import FormDrawer from '../components/FormDrawer.astro';
+import Contact from '../components/Contact.astro';
+import Footer from '../components/Footer.astro';
+import MobileCta from '../components/MobileCta.astro';
+import { asset } from '../lib/url';
+---
+<Base>
+  <Header />
+  <main id="conteudo">
+    <Hero />
+    <Clients />
+    <Cost />
+    <!-- o formulário logo depois do custo: "É falta de estratégia." → "Descubra onde seu marketing está perdendo dinheiro" -->
+    <Contact />
+    <Fit />
+    <Sunrise />
+    <Services />
+    <Reel />
+    <Sunrise />
+    <Differentials />
+    <Proof />
+    <Testimonials />
+    <Process />
+    <Faq />
+    <!-- chamada final no lugar antigo do formulário: o botão abre a gaveta -->
+    <FinalCta />
+  </main>
+  <Footer />
+  <MobileCta />
+  <FormDrawer />
+  <!-- sol que percorre a página (script sem build, em public/sol.js) -->
+  <script is:inline src={asset('sol.js')} defer></script>
+  <script>
+    import '../scripts/video';
+    import '../scripts/ui';
+    import '../scripts/form';
+    import '../scripts/drawer';
+    import '../scripts/motion';
+  </script>
+</Base>

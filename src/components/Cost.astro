@@ -1,0 +1,243 @@
+---
+const pains = [
+  { k: 'Verba', t: 'Anúncio rodando para o público errado, sem saber qual campanha traz cliente.' },
+  { k: 'Conteúdo', t: 'Post publicado porque “precisa postar”, sem intenção e sem consistência.' },
+  { k: 'Marca', t: 'Uma identidade que não comunica valor e não é lembrada na hora da compra.' },
+  { k: 'Site', t: 'Visitas que chegam, olham e vão embora sem deixar contato.' },
+];
+---
+<section class="cost section grain" id="custo" aria-labelledby="cost-title">
+  <div class="wrap cost__in">
+    <p class="eyebrow" data-reveal>O custo do improviso</p>
+    <h2 class="h2 cost__title" id="cost-title" data-reveal>
+      Marketing sem direção custa <em class="hl">caro</em>. E a conta chega todo mês.
+    </h2>
+
+    <!-- linhas riscadas e a virada acendem com a rolagem (public/sol.js alterna .on) -->
+    <div class="mani">
+      <p class="mani__l mani__l--x" data-mani="0.74"><span>Não é falta de esforço.<i aria-hidden="true"></i></span></p>
+      <p class="mani__l mani__l--x" data-mani="0.66"><span>Nem de ferramenta.<i aria-hidden="true"></i></span></p>
+      <p class="mani__l mani__l--y" data-mani="0.6"><span>É falta de <em>estratégia</em>.</span></p>
+      <p class="mani__sub" data-mani="0.56">
+        Decisões tomadas no escuro, frentes que não conversam entre si e uma marca que trabalha muito para ser pouco
+        lembrada.
+      </p>
+    </div>
+
+    <ol class="cost__list">
+      {
+        pains.map((p, i) => (
+          <li data-reveal style={`--d:${i * 0.08}s`}>
+            <span class="cost__n">0{i + 1}</span>
+            <h3 class="cost__k">{p.k}</h3>
+            <p>{p.t}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>
+
+<style>
+  .cost {
+    background: var(--ink);
+    overflow: hidden;
+    /* clip: corta igual, mas o navegador não consegue rolar a seção para o lado ao focar um campo */
+    overflow: clip;
+  }
+  .cost__title {
+    margin-top: 24px;
+    max-width: 16ch;
+  }
+  .mani {
+    margin-top: clamp(3rem, 7vw, 6rem);
+    display: grid;
+    gap: 0.12em;
+    font-family: var(--f-display);
+    font-size: clamp(2.1rem, 5vw, 4.6rem);
+    font-weight: 600;
+    line-height: 1.04;
+    letter-spacing: -0.04em;
+    font-variation-settings: 'opsz' 96;
+  }
+  .mani__l {
+    margin: 0;
+  }
+  .mani__l > span {
+    position: relative;
+    display: inline-block;
+    transition: color 0.8s var(--ease-out);
+  }
+  /* risco: degradê do sol com brilho */
+  .mani__l--x i {
+    position: absolute;
+    left: -0.04em;
+    right: -0.04em;
+    top: 52%;
+    height: 0.085em;
+    border-radius: 0.085em;
+    background: linear-gradient(90deg, var(--sun-1), var(--sun-3));
+    box-shadow: 0 0 18px rgb(254 67 77 / 0.55);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.9s var(--ease-out);
+  }
+  .mani__l--x.on > span {
+    color: #5d5955;
+  }
+  .mani__l--x.on i {
+    transform: scaleX(1);
+  }
+  .mani__l--y {
+    font-size: 1.32em;
+    margin-top: 0.08em;
+  }
+  .mani__l--y em {
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    padding-right: 0.06em;
+    background: linear-gradient(180deg, var(--sun-1), var(--sun-2) 55%, var(--sun-3));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 26px rgb(254 67 77 / 0.45));
+  }
+  .mani__sub {
+    margin-top: clamp(1.2rem, 2.4vw, 2rem);
+    max-width: 38ch;
+    font-family: var(--f-body);
+    font-size: clamp(1.05rem, 1.5vw, 1.3rem);
+    font-weight: 400;
+    line-height: 1.55;
+    letter-spacing: 0;
+    color: var(--mute);
+  }
+  /* estado inicial só com JS (sem JS, tudo aparece pronto) */
+  :global(.js) .mani__l--y > span,
+  :global(.js) .mani__sub {
+    opacity: 0;
+    transform: translateY(0.35em);
+    filter: blur(6px);
+    transition: opacity 1s var(--ease-out), transform 1s var(--ease-out), filter 1s var(--ease-out);
+  }
+  :global(.js) .mani__l--y.on > span,
+  :global(.js) .mani__sub.on {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mani__l--x > span {
+      color: #5d5955;
+    }
+    .mani__l--x i {
+      transform: scaleX(1);
+    }
+    :global(.js) .mani__l--y > span,
+    :global(.js) .mani__sub {
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
+  }
+  .cost__list {
+    margin-top: clamp(4rem, 8vw, 7rem);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--line);
+  }
+  .cost__list li {
+    position: relative;
+    padding: 28px 28px 8px 0;
+    display: grid;
+    gap: 10px;
+    align-content: start;
+  }
+  .cost__list li + li {
+    padding-left: 28px;
+    border-left: 1px solid var(--line);
+  }
+  .cost__n {
+    font-size: 0.75rem;
+    color: var(--mute-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .cost__k {
+    font-family: var(--f-display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+  .cost__list p {
+    color: var(--mute);
+    font-size: 0.95rem;
+  }
+  @media (max-width: 900px) {
+    .cost__list {
+      grid-template-columns: 1fr 1fr;
+    }
+    .cost__list li:nth-child(3) {
+      padding-left: 0;
+      border-left: 0;
+    }
+    .cost__list li:nth-child(n + 3) {
+      border-top: 1px solid var(--line);
+    }
+  }
+  @media (max-width: 560px) {
+    .cost__list {
+      grid-template-columns: 1fr;
+    }
+    .cost__list li,
+    .cost__list li + li {
+      padding: 22px 0 18px;
+      border-left: 0;
+    }
+    .cost__list li + li {
+      border-top: 1px solid var(--line);
+    }
+  }
+  @media (max-width: 900px) {
+    .cost {
+      padding-block: 3.5rem;
+    }
+    /* celular: manifesto centrado como o título (o risco acompanha porque cada linha é inline-block) */
+    .mani {
+      margin-top: 2.25rem;
+      text-align: center;
+      justify-items: center;
+    }
+    .mani__sub {
+      margin-inline: auto;
+    }
+    .cost__title {
+      margin-inline: auto;
+      text-align: center;
+    }
+    /* as dores viram 2x2 compacto */
+    .cost__list {
+      grid-template-columns: 1fr 1fr;
+      margin-top: 2.5rem;
+    }
+    .cost__list li,
+    .cost__list li + li {
+      padding: 16px 12px 12px 0;
+      border-left: 0;
+    }
+    .cost__list li:nth-child(even) {
+      padding-left: 12px;
+      border-left: 1px solid var(--line);
+    }
+    .cost__list li:nth-child(n + 3) {
+      border-top: 1px solid var(--line);
+    }
+    .cost__k {
+      font-size: 1.2rem;
+    }
+    .cost__list p {
+      font-size: 0.86rem;
+    }
+  }
+</style>

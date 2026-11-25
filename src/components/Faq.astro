@@ -1,0 +1,189 @@
+---
+import { FAQ, CONTACT } from '../data/content';
+import { whatsappLink } from '../lib/lead';
+---
+<section class="faq section" id="faq" aria-labelledby="faq-title">
+  <div class="wrap faq__grid">
+    <div class="faq__aside">
+      <p class="eyebrow" data-reveal>Perguntas frequentes</p>
+      <h2 class="h2 faq__title" id="faq-title" data-reveal>
+        O que todo cliente quer saber antes de <em class="hl">decidir</em>.
+      </h2>
+      <p class="lede faq__lede" data-reveal>
+        Transparência faz parte do nosso jeito de trabalhar. Se sua dúvida não estiver aqui, a gente responde na hora.
+      </p>
+      <a class="faq__wa" href={whatsappLink(CONTACT.whatsappText)} target="_blank" rel="noopener" data-cta="faq-whatsapp" data-reveal>
+        <span class="faq__wa-dot" aria-hidden="true"></span>
+        Perguntar no WhatsApp
+        <span class="sr-only">(abre em nova aba)</span>
+      </a>
+    </div>
+
+    <div class="faq__list" data-faq>
+      {
+        FAQ.map((f, i) => (
+          <div class="qa" data-reveal style={`--d:${i * 0.04}s`}>
+            <h3>
+              <button class="qa__q" type="button" aria-expanded="false" aria-controls={`qa-${i}`} id={`qa-btn-${i}`}>
+                <span>{f.q}</span>
+                <span class="qa__icon" aria-hidden="true"><i></i><i></i></span>
+              </button>
+            </h3>
+            <div class="qa__a" id={`qa-${i}`} role="region" aria-labelledby={`qa-btn-${i}`}>
+              <div><p>{f.a}</p></div>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq {
+    background: var(--ink);
+  }
+  .faq__grid {
+    display: grid;
+    grid-template-columns: 1fr 1.25fr;
+    gap: clamp(32px, 6vw, 96px);
+    align-items: start;
+  }
+  .faq__aside {
+    position: sticky;
+    top: calc(var(--header-h) + 40px);
+    display: grid;
+    gap: 24px;
+    justify-items: start;
+  }
+  .faq__title {
+    max-width: 13ch;
+  }
+  .faq__wa {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 22px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+    transition: box-shadow 0.3s, background 0.3s;
+  }
+  .faq__wa:hover {
+    background: rgb(37 211 102 / 0.08);
+    box-shadow: inset 0 0 0 1px rgb(37 211 102 / 0.5);
+  }
+  .faq__wa-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #25d366;
+    box-shadow: 0 0 0 4px rgb(37 211 102 / 0.18);
+  }
+  .qa {
+    border-bottom: 1px solid var(--line);
+  }
+  .qa:first-child {
+    border-top: 1px solid var(--line);
+  }
+  .qa h3 {
+    margin: 0;
+  }
+  .qa__q {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 26px 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    font-family: var(--f-display);
+    font-size: clamp(1.15rem, 1.7vw, 1.4rem);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    transition: color 0.3s;
+  }
+  .qa__q:hover {
+    color: #fff;
+  }
+  .qa__icon {
+    position: relative;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+    transition: background 0.3s, transform 0.5s var(--ease-out);
+  }
+  .qa__icon i {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 12px;
+    height: 1.5px;
+    margin: -0.75px 0 0 -6px;
+    background: currentColor;
+    transition: transform 0.4s var(--ease-out);
+  }
+  .qa__icon i:last-child {
+    transform: rotate(90deg);
+  }
+  .qa__q[aria-expanded='true'] .qa__icon {
+    background: var(--orange);
+    color: var(--black);
+    transform: rotate(180deg);
+    box-shadow: none;
+  }
+  .qa__q[aria-expanded='true'] .qa__icon i:last-child {
+    transform: rotate(0);
+  }
+  .qa__a {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.5s var(--ease-out);
+  }
+  .qa__a > div {
+    overflow: hidden;
+  }
+  .qa__a p {
+    padding: 0 60px 28px 0;
+    color: var(--mute);
+    max-width: 60ch;
+  }
+  .qa.is-open .qa__a {
+    grid-template-rows: 1fr;
+  }
+  @media (max-width: 860px) {
+    .faq__grid {
+      grid-template-columns: 1fr;
+    }
+    .faq__aside {
+      position: static;
+    }
+    .qa__a p {
+      padding-right: 0;
+    }
+  }
+  @media (max-width: 860px) {
+    .faq {
+      padding-block: 3.25rem;
+    }
+    .faq__aside {
+      justify-items: center;
+      text-align: center;
+      gap: 16px;
+      margin-bottom: 1.5rem;
+    }
+    .faq__title,
+    .faq__lede {
+      margin-inline: auto;
+    }
+    .qa__q {
+      padding: 18px 0;
+    }
+  }
+</style>

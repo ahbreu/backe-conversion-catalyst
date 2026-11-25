@@ -1,0 +1,199 @@
+---
+// Ponto de vista: para quem é (e para quem não é) a Backe. Fica entre o Custo do improviso e os Serviços.
+const yes = [
+  'Seu negócio já vende, mas o crescimento ainda depende de indicação e sorte.',
+  'Você investe em anúncio e não sabe dizer qual campanha traz cliente.',
+  'Sua empresa é melhor do que a imagem que ela passa hoje.',
+  'Você quer um time que responda pelo resultado, não só pela entrega.',
+];
+const no = ['Você procura só alguém para postar.', 'Você espera resultado em uma semana, sem estratégia por trás.'];
+---
+<section class="fit grain" id="para-quem" aria-labelledby="fit-title">
+  <div class="wrap fit__in">
+    <header class="fit__head">
+      <p class="eyebrow" data-reveal>Para quem é</p>
+      <h2 class="h2 fit__title" id="fit-title" data-reveal>A Backe não é para <em class="hl">todo mundo</em>.</h2>
+      <p class="lede fit__lede" data-reveal>
+        Trabalhamos com poucas empresas por vez, para poder responder pelo resultado de cada uma.
+      </p>
+    </header>
+
+    <div class="fit__yes" data-reveal style="--d:.08s">
+      <h3 class="fit__label">É para você se</h3>
+      <ul class="fit__list">
+        {
+          yes.map((t) => (
+            <li>
+              <span class="fit__ok" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9" /></svg>
+              </span>
+              {t}
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <div class="fit__no" data-reveal style="--d:.16s">
+      <h3 class="fit__label fit__label--no">Não é para você se</h3>
+      <ul class="fit__list fit__list--no">
+        {
+          no.map((t) => (
+            <li>
+              <span class="fit__x" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M8 8l8 8M16 8l-8 8" /></svg>
+              </span>
+              {t}
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+</section>
+
+<style>
+  .fit {
+    position: relative;
+    background: var(--ink);
+    overflow: hidden;
+    /* clip: corta igual, mas o navegador não consegue rolar a seção para o lado ao focar um campo */
+    overflow: clip;
+    padding-block: clamp(3rem, 7vw, 6rem) clamp(4rem, 9vw, 8rem);
+  }
+  .fit__in {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.15fr) minmax(0, 0.8fr);
+    gap: clamp(2rem, 4vw, 4rem);
+    align-items: start;
+    padding-top: clamp(3rem, 6vw, 5rem);
+    border-top: 1px solid var(--line);
+  }
+  .fit__title {
+    margin-top: 20px;
+    font-size: clamp(2.4rem, 4.6vw, 4.6rem);
+  }
+  .fit__lede {
+    margin-top: 20px;
+    max-width: 30ch;
+  }
+  .fit__label {
+    font-family: var(--f-body);
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--text);
+  }
+  .fit__label--no {
+    color: var(--mute);
+  }
+  .fit__list {
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+  }
+  .fit__list li {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 14px;
+    align-items: start;
+    padding: 18px 0;
+    border-top: 1px solid var(--line);
+    font-size: clamp(1.02rem, 1.25vw, 1.15rem);
+    line-height: 1.5;
+    color: var(--text);
+    text-wrap: pretty;
+  }
+  /* marcador do “sim”: círculo com o degradê do sol */
+  .fit__ok {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    margin-top: -1px;
+    border-radius: 50%;
+    background: var(--sun);
+    box-shadow: 0 0 18px rgb(254 67 77 / 0.35);
+  }
+  .fit__ok svg,
+  .fit__x svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .fit__ok svg {
+    color: #0a0a0a;
+  }
+  /* “não é”: mais discreto, cinza e menor */
+  .fit__list--no li {
+    grid-template-columns: 22px 1fr;
+    gap: 12px;
+    padding: 14px 0;
+    font-size: 0.95rem;
+    color: var(--mute);
+  }
+  .fit__x {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+    color: var(--mute-2);
+  }
+  .fit__x svg {
+    width: 12px;
+    height: 12px;
+    stroke-width: 2.2;
+  }
+
+  @media (max-width: 1100px) and (min-width: 901px) {
+    .fit__in {
+      grid-template-columns: 1fr 1fr;
+    }
+    .fit__head {
+      grid-column: 1 / -1;
+    }
+  }
+  @media (max-width: 900px) {
+    .fit {
+      padding-block: 0 3.25rem;
+    }
+    .fit__in {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      padding-top: 3rem;
+    }
+    .fit__head {
+      display: grid;
+      justify-items: center;
+      text-align: center;
+    }
+    .fit__title {
+      margin-top: 14px;
+    }
+    .fit__lede {
+      margin-top: 14px;
+      margin-inline: auto;
+    }
+    .fit__list {
+      margin-top: 10px;
+    }
+    .fit__list li {
+      padding: 14px 0;
+      font-size: 1rem;
+    }
+    .fit__list--no li {
+      padding: 12px 0;
+      font-size: 0.92rem;
+    }
+  }
+</style>

@@ -1,0 +1,23 @@
+---
+/** Símbolo oficial da Backe. Reutiliza o path do sprite em Base.astro (sem duplicar o vetor). */
+interface Props {
+  class?: string;
+  fill?: string;
+  part?: 'full' | 'stem' | 'bowl';
+  label?: string;
+  [k: string]: unknown;
+}
+const { class: cls, fill = 'url(#sun-v)', part = 'full', label, ...rest } = Astro.props;
+const clip = part === 'stem' ? 'url(#clip-stem)' : part === 'bowl' ? 'url(#clip-bowl)' : undefined;
+---
+<svg
+  class={cls}
+  viewBox="0 0 504 506"
+  role={label ? 'img' : undefined}
+  aria-label={label}
+  aria-hidden={label ? undefined : 'true'}
+  focusable="false"
+  {...rest}
+>
+  <use href="#b-symbol" fill={fill} clip-path={clip}></use>
+</svg>
