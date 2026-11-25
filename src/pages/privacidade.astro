@@ -1,0 +1,73 @@
+---
+/**
+ * Política de Privacidade. Gerada no build (não fica em public/) para o texto acompanhar a configuração:
+ * e-mail de contato e o modo do Meta Pixel (com ou sem consentimento) vêm de src/config/site.ts.
+ */
+import { CONTACT_EMAIL, META_PIXEL_ID, PIXEL_REQUIRES_CONSENT } from '../config/site';
+import { asset, absolute } from '../lib/url';
+const canonical = absolute('privacidade.html');
+const csp = "default-src 'self'; style-src 'unsafe-inline'; img-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'";
+---
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content={csp} />
+  <meta name="robots" content="index,follow" />
+  <meta name="theme-color" content="#000000" />
+  <title>Política de Privacidade | BACKE.co</title>
+  <link rel="canonical" href={canonical} />
+  <link rel="icon" href={asset('favicon.svg')} type="image/svg+xml" />
+  <style is:inline>
+    :root{color-scheme:dark}
+    body{margin:0;background:#000;color:#f4f2ef;font:17px/1.7 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+    body::before{content:"";position:fixed;inset:auto -30vmax -70vmax auto;width:100vmax;height:100vmax;border-radius:50%;background:radial-gradient(closest-side,rgba(254,67,77,.35),rgba(234,104,50,.18) 45%,transparent);pointer-events:none;z-index:-1}
+    main{max-width:720px;margin:0 auto;padding:48px 20px 96px}
+    a{color:#ff8a3d}
+    a:focus-visible{outline:2px solid #ff6a00;outline-offset:3px;border-radius:4px}
+    .back{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:#f4f2ef;font-weight:600}
+    .back img{width:32px;height:32px}
+    h1{margin:56px 0 8px;font-size:clamp(2.2rem,6vw,3.6rem);line-height:1;letter-spacing:-.04em}
+    h2{margin:48px 0 8px;font-size:1.3rem;letter-spacing:-.02em}
+    p{color:#c9c5c0}
+    small{color:#8a8681}
+  </style>
+</head>
+<body>
+  <main>
+    <a class="back" href={asset('')}><img src={asset('favicon.svg')} alt="" width="32" height="32" /> Voltar ao site</a>
+    <h1>Política de Privacidade</h1>
+    <small>Última atualização: 25 de novembro de 2026</small>
+    <p>A BACKE.co utiliza os dados enviados no formulário (nome, telefone, e-mail, empresa e informações comerciais) para responder ao contato, preparar um diagnóstico e manter o relacionamento comercial solicitado.</p>
+    <h2>Como tratamos os dados</h2>
+    <p>Os dados são armazenados em infraestrutura Cloudflare com acesso restrito e usados pela API oficial do WhatsApp da Meta para avisar a equipe comercial e retornar o contato. Não vendemos dados pessoais.</p>
+    <h2>Cookies e medição de campanhas</h2>
+    {META_PIXEL_ID && PIXEL_REQUIRES_CONSENT && (
+      <>
+        <p>Com sua autorização, carregamos o Meta Pixel para registrar visualizações de página, interações com seções, serviços, botões e a conclusão do formulário. Essa medição ajuda a avaliar campanhas e pode envolver cookies e identificadores do navegador enviados à Meta. O Pixel não recebe, por nossa implementação, o nome, telefone, e-mail ou conteúdo preenchido no formulário.</p>
+        <p>Você pode recusar a medição sem perder acesso ao site ou ao formulário e pode mudar sua escolha a qualquer momento em “Preferências de privacidade”, no rodapé do site. A recusa não desativa recursos estritamente necessários, como a segurança antiabuso.</p>
+      </>
+    )}
+    {META_PIXEL_ID && !PIXEL_REQUIRES_CONSENT && (
+      <>
+        <p>Ao abrir o site, carregamos o Meta Pixel para registrar visualizações de página, interações com seções, serviços, botões e a conclusão do formulário. Essa medição ajuda a avaliar campanhas e pode envolver cookies e identificadores do navegador enviados à Meta. O Pixel não recebe, por nossa implementação, o nome, telefone, e-mail ou conteúdo preenchido no formulário.</p>
+        <p>Se não quiser essa medição, você pode bloquear cookies de terceiros nas configurações do seu navegador ou usar extensões que bloqueiam rastreadores, sem perder acesso ao site ou ao formulário. A recusa não desativa recursos estritamente necessários, como a segurança antiabuso.</p>
+      </>
+    )}
+    {!META_PIXEL_ID && <p>Não usamos cookies de marketing.</p>}
+    <p>Também usamos o Cloudflare Web Analytics para métricas agregadas de audiência e desempenho. Esse recurso não utiliza cookies, armazenamento local ou identificação individual do visitante.</p>
+    <h2>Retenção</h2>
+    <p>Leads sem andamento são eliminados após 180 dias. Registros necessários para uma relação contratual poderão ser mantidos durante os prazos legais aplicáveis.</p>
+    <h2>Seus direitos</h2>
+    {CONTACT_EMAIL ? (
+      <p>Você pode solicitar confirmação, acesso, correção ou eliminação dos seus dados pelo e-mail <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. Podemos solicitar informações para confirmar a identidade do requerente.</p>
+    ) : (
+      <p>Você pode solicitar confirmação, acesso, correção ou eliminação dos seus dados pelos canais de contato do site. Podemos solicitar informações para confirmar a identidade do requerente.</p>
+    )}
+    <h2>Segurança e fornecedores</h2>
+    <p>Aplicamos controles de acesso, validação antiabuso, minimização e exclusão programada. Cloudflare e Meta atuam como fornecedores de infraestrutura sujeitos às respectivas condições e medidas de segurança.</p>
+    <p>Esta política poderá ser atualizada quando o fluxo ou os requisitos legais mudarem.</p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,82 @@
+---
+/**
+ * Nascer do sol entre duas seções (só no celular): meio disco com o degradê da marca subindo atrás
+ * da mesma curva de horizonte do Método e do rodapé. Elemento normal da página (sem position:fixed).
+ * A subida acontece uma vez, quando entra na tela.
+ */
+---
+<div class="rise" aria-hidden="true" data-rise>
+  <span class="rise__sun"></span>
+  <svg class="rise__ground" viewBox="0 0 1440 120" preserveAspectRatio="none" focusable="false">
+    <path class="rise__fill" d="M0 70 C 260 70 380 18 640 22 C 900 26 1020 92 1240 84 C 1330 81 1400 66 1440 58 L1440 120 L0 120 Z"></path>
+    <path class="rise__line" d="M0 70 C 260 70 380 18 640 22 C 900 26 1020 92 1240 84 C 1330 81 1400 66 1440 58"></path>
+  </svg>
+</div>
+
+<script>
+  const els = document.querySelectorAll<HTMLElement>('[data-rise]');
+  if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    els.forEach((e) => e.classList.add('is-up'));
+  } else {
+    const io = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('is-up');
+            io.unobserve(e.target);
+          }
+        }),
+      { threshold: 0.6 },
+    );
+    els.forEach((e) => io.observe(e));
+  }
+</script>
+
+<style>
+  .rise {
+    display: none;
+  }
+  @media (max-width: 900px) {
+    .rise {
+      position: relative;
+      display: block;
+      /* alto o bastante para o disco e o brilho não serem cortados no topo */
+      height: 170px;
+      overflow: hidden;
+      background: #000;
+    }
+    .rise__sun {
+      position: absolute;
+      left: 50%;
+      /* o centro do disco para na crista do horizonte: a metade de cima aparece inteira */
+      bottom: -28px;
+      width: 140px;
+      height: 140px;
+      margin-left: -70px;
+      border-radius: 50%;
+      background: var(--sun);
+      box-shadow: 0 0 60px rgb(254 67 77 / 0.5);
+      transform: translateY(55%);
+      transition: transform 1.6s var(--ease-out);
+    }
+    .rise.is-up .rise__sun {
+      transform: none;
+    }
+    .rise__ground {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      height: 54px;
+    }
+    .rise__fill {
+      fill: #000;
+    }
+    .rise__line {
+      fill: none;
+      stroke: url(#sun-v);
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
+    }
+  }
+</style>

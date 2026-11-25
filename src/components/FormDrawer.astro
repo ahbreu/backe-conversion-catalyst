@@ -1,0 +1,152 @@
+---
+// Gaveta do formulário: quando o visitante já passou da seção do formulário, os botões que levam a
+// #diagnostico abrem esta gaveta e o MESMO cartão do formulário é movido para cá (não é uma cópia).
+// Celular: folha que sobe de baixo (até 92% da altura), com alça para arrastar. Desktop: modal de até 560px.
+---
+<dialog class="drawer" data-drawer aria-labelledby="drawer-title" data-lenis-prevent>
+  <div class="drawer__sheet" data-drawer-sheet>
+    <div class="drawer__top" data-drawer-grab>
+      <span class="drawer__grip" aria-hidden="true"></span>
+      <p class="drawer__title" id="drawer-title">Diagnóstico estratégico gratuito</p>
+      <button class="drawer__x" type="button" data-drawer-close aria-label="Fechar">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+      </button>
+    </div>
+    <div class="drawer__body" data-drawer-body></div>
+  </div>
+</dialog>
+
+<style>
+  .drawer {
+    --sheet-y: 0px;
+    position: fixed;
+    inset: auto 0 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 92dvh;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    overflow: visible;
+  }
+  .drawer::backdrop {
+    background: rgb(0 0 0 / 0.6);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+  .drawer.is-open::backdrop {
+    opacity: 1;
+  }
+  .drawer__sheet {
+    display: flex;
+    flex-direction: column;
+    max-height: 92dvh;
+    border-radius: 24px 24px 0 0;
+    background: linear-gradient(180deg, #161413, #0d0c0b);
+    box-shadow: 0 -20px 60px rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.08);
+    transform: translateY(calc(100% + 20px));
+    transition: transform 0.45s var(--ease-out);
+  }
+  .drawer.is-open .drawer__sheet {
+    transform: translateY(var(--sheet-y));
+  }
+  .drawer.is-dragging .drawer__sheet {
+    transition: none;
+  }
+  .drawer__top {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 22px 16px 10px 20px;
+    touch-action: none;
+    cursor: grab;
+  }
+  .drawer__grip {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 44px;
+    height: 5px;
+    margin-left: -22px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.25);
+  }
+  .drawer__title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--sun-2);
+  }
+  .drawer__x {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 50%;
+    background: rgb(255 255 255 / 0.06);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .drawer__x svg {
+    width: 20px;
+    height: 20px;
+  }
+  .drawer__body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 18px 12px calc(16px + env(safe-area-inset-bottom));
+  }
+  /* o cartão do formulário dentro da gaveta: sem a animação de entrada da página e com espaço para o selo */
+  .drawer__body :global(.card) {
+    margin-top: 10px;
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+  @media (min-width: 901px) {
+    .drawer {
+      inset: 0;
+      width: min(560px, calc(100vw - 48px));
+      max-height: 90vh;
+      margin: auto;
+    }
+    .drawer__sheet {
+      max-height: 90vh;
+      border-radius: 28px;
+      transform: translateY(24px) scale(0.98);
+      opacity: 0;
+      transition: transform 0.45s var(--ease-out), opacity 0.3s;
+    }
+    .drawer.is-open .drawer__sheet {
+      transform: none;
+      opacity: 1;
+    }
+    .drawer__grip {
+      display: none;
+    }
+    .drawer__top {
+      padding: 18px 18px 6px 24px;
+      cursor: default;
+    }
+    .drawer__body {
+      padding: 14px 20px 24px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .drawer__sheet,
+    .drawer::backdrop {
+      transition: none;
+    }
+  }
+  :global(html.drawer-open) {
+    overflow: hidden;
+  }
+</style>

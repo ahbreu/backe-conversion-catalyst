@@ -4,7 +4,7 @@ Landing page institucional da BACKE Creative, focada em conversão e captura con
 
 ## Stack
 
-- Vite, React 18, TypeScript e Tailwind no frontend.
+- Astro 5 + TypeScript no frontend (site estático), com GSAP e CSS próprio. Design de Gabriel Felix (repositório `gabrielfelixback/sitebacke`).
 - Express para desenvolvimento local.
 - Cloudflare Worker + D1 + Workflows + Cron Trigger em produção.
 - API oficial do WhatsApp Cloud da Meta para contato automático.
@@ -20,6 +20,35 @@ npm run dev
 ```
 
 Frontend: `http://localhost:8080`. Backend: `http://localhost:3001`.
+
+Testes do frontend (validação, payload e envio do formulário): `npm test`.
+
+### Frontend
+
+| Caminho | O que é |
+|---|---|
+| `src/config/site.ts` | **Toda a configuração pública** (API, Turnstile, Pixel, WhatsApp, e-mail), lida das variáveis `VITE_*`. Nenhum valor fica escrito no código. |
+| `src/data/content.ts` | Todo o conteúdo do site (serviços, FAQ, números, clientes, etapas). |
+| `src/lib/lead.ts` | Validação e envio do formulário. O payload segue o contrato de `POST /api/leads` do Worker e do backend local. |
+| `src/components/*.astro` | Uma seção por componente. `Consent.astro` é o aviso de privacidade do Meta Pixel. |
+| `src/pages/` | `index`, `privacidade` (gera `/privacidade.html`) e `404`. |
+| `public/` | Imagens, vídeos, ícones, `robots.txt`, `sitemap.xml` e `sol.js`. |
+
+Variáveis do build (GitHub → Settings → Secrets and variables → Actions → **Variables**; localmente em `.env.local`):
+
+| Variável | Obrigatória | Para quê |
+|---|---|---|
+| `VITE_API_URL` | sim | Endereço do Worker de leads (sem `/api/leads`). |
+| `VITE_TURNSTILE_SITE_KEY` | sim | Sitekey pública do Turnstile. |
+| `VITE_PUBLIC_WHATSAPP_PHONE` | sim | WhatsApp da Backe, só dígitos com DDI (`5561…`). |
+| `VITE_PUBLIC_CONTACT_EMAIL` | não | E-mail exibido no rodapé e na Política de Privacidade (some do site se vazio). |
+| `VITE_PUBLIC_WHATSAPP_MESSAGE` | não | Mensagem inicial dos links de WhatsApp. |
+| `VITE_META_PIXEL_ID` | não | ID público do Meta Pixel. |
+| `VITE_META_PIXEL_REQUIRE_CONSENT` | não | Padrão `true`: Pixel só depois de "Aceitar". `false` carrega para todos (avaliar LGPD antes). |
+| `VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN` | não | Token público do Cloudflare Web Analytics. |
+| `VITE_BASE_PATH` / `PUBLIC_SITE_URL` | não | Caminho base (`/` em backe.com.br) e endereço canônico (padrão `https://backe.com.br`). |
+
+O deploy falha de propósito se uma variável obrigatória estiver vazia, para nunca publicar um formulário que não envia.
 
 Rotas do backend:
 

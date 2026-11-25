@@ -1,0 +1,81 @@
+---
+import Vbox from './Vbox.astro';
+// Vídeo em tela cheia logo depois dos Serviços. Desktop: horizontal; até 900px: vertical.
+---
+<section class="show" id="audiovisual" aria-labelledby="show-title" data-sun-zenith data-img>
+  <!-- mesmo arquivo do hero (reel-desktop / reel-mobile): já está em cache quando a pessoa chega aqui -->
+  <Vbox base="reel" class="show__video" label="Vídeo de captação aérea e audiovisual feito pela Backe" />
+  <div class="show__shade" aria-hidden="true"></div>
+
+  <div class="wrap show__copy">
+    <h2 class="show__title" id="show-title">Do planejamento à câmera, é tudo <em class="hl">Backe</em>.</h2>
+    <a class="link-arrow" href="#diagnostico" data-interest="Captação Audiovisual / Drone" data-cta="audiovisual">
+      Quero imagens assim para a minha marca
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"></path></svg>
+    </a>
+  </div>
+</section>
+
+<style>
+  .show {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    min-height: calc(var(--vh, 1svh) * 92);
+    overflow: hidden;
+    /* clip: corta igual, mas o navegador não consegue rolar a seção para o lado ao focar um campo */
+    overflow: clip;
+    background: #000;
+    isolation: isolate;
+  }
+  .show :global(.show__video) {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+  }
+  .show__shade {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.85) 0%,
+      rgb(0 0 0 / 0.15) 28%,
+      rgb(0 0 0 / 0.1) 55%,
+      rgb(0 0 0 / 0.88) 100%
+    );
+  }
+  .show__copy {
+    display: grid;
+    gap: 22px;
+    justify-items: start;
+    padding-bottom: clamp(2.5rem, 7vw, 5rem);
+  }
+  .show__title {
+    max-width: 14ch;
+    font-family: var(--f-display);
+    font-size: clamp(2.4rem, 5.6vw, 5.6rem);
+    font-weight: 600;
+    line-height: 0.94;
+    letter-spacing: -0.045em;
+    font-variation-settings: 'opsz' 96;
+    text-wrap: balance;
+    text-shadow: 0 10px 40px rgb(0 0 0 / 0.45);
+  }
+  @media (max-width: 900px) {
+    .show__copy {
+      justify-items: center;
+      text-align: center;
+    }
+    .show__title {
+      margin-inline: auto;
+    }
+  }
+  /* celular: a barra fixa (56px + 12px de margem) não cobre "Quero imagens assim para a minha marca" */
+  @media (max-width: 860px) {
+    .show {
+      padding-bottom: calc(68px + env(safe-area-inset-bottom));
+    }
+  }
+</style>

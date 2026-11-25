@@ -5,41 +5,36 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev-local.cjs",
-    "dev:frontend": "vite",
+    "dev:frontend": "astro dev --port 8080",
     "dev:backend": "node backend/server.js",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
+    "build": "astro build",
     "lint": "eslint .",
-    "preview": "vite preview",
+    "preview": "astro preview",
     "serve:dist": "node scripts/serve-dist.cjs",
     "worker:dev": "npx wrangler dev --config worker/wrangler.toml",
     "worker:deploy": "npx wrangler deploy --config worker/wrangler.toml",
     "leads:local": "node scripts/list-local-leads.cjs",
     "test:backend": "node scripts/test-backend-helpers.cjs",
     "test:meta": "node --env-file=.env.local scripts/test-meta-healthcheck.js",
-    "test:lead": "node --env-file=.env.local scripts/test-lead-capture.js"
+    "test:lead": "node --env-file=.env.local scripts/test-lead-capture.js",
+    "test": "vitest run"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "sonner": "^1.7.4"
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
+    "astro": "^5.18.2",
+    "gsap": "^3.15.1",
+    "lenis": "^1.3.27"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@types/node": "^22.16.5",
-    "@types/react": "^18.3.23",
-    "@types/react-dom": "^18.3.7",
-    "@vitejs/plugin-react": "^6.0.1",
-    "autoprefixer": "^10.4.21",
     "eslint": "^9.32.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
-    "vite": "^8.0.9",
+    "vitest": "^3.2.7",
     "wrangler": "^4.110.0"
   }
 }

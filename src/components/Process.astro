@@ -1,0 +1,230 @@
+---
+import { STEPS } from '../data/content';
+import Button from './Button.astro';
+---
+<section class="proc" id="metodo" aria-labelledby="proc-title" data-process>
+  <svg class="proc__horizon" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true">
+    <!-- o horizonte: curva em S inspirada no interior do símbolo -->
+    <path d="M0 120 L0 70 C 260 70 380 18 640 22 C 900 26 1020 92 1240 84 C 1330 81 1400 66 1440 58 L1440 120 Z" fill="currentColor"></path>
+  </svg>
+  <div class="proc__body">
+    <div class="wrap proc__grid">
+      <div class="proc__aside">
+        <div class="proc__sticky">
+          <p class="eyebrow proc__eyebrow" data-reveal>Método</p>
+          <h2 class="h2 proc__title" id="proc-title" data-reveal>
+            Da primeira conversa ao primeiro <em class="hl">resultado</em>.
+          </h2>
+          <p class="proc__lede" data-reveal>
+            Quatro etapas, um time responsável e você sabendo o que acontece em cada uma.
+          </p>
+          <div class="proc__meter" aria-hidden="true">
+            <div class="proc__sun" data-proc-sun></div>
+            <div class="proc__line"></div>
+          </div>
+        </div>
+      </div>
+      <ol class="proc__steps">
+        {
+          STEPS.map((s, i) => (
+            <li class="step" data-step data-card>
+              <span class="step__n">{s.n}</span>
+              <div>
+                <h3 class="h3 step__t">{s.title}</h3>
+                <p class="step__p">{s.text}</p>
+                {i === 0 && (
+                  <div class="step__cta">
+                    <Button href="#diagnostico" data-cta="processo">Começar pela etapa 01</Button>
+                  </div>
+                )}
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </div>
+</section>
+
+<style>
+  .proc {
+    position: relative;
+    color: var(--paper-ink);
+    background: var(--ink);
+  }
+  .proc__horizon {
+    display: block;
+    width: 100%;
+    height: clamp(48px, 8vw, 120px);
+    color: var(--paper);
+    margin-bottom: -1px;
+  }
+  .proc__body {
+    background: var(--paper);
+    padding-block: clamp(3rem, 8vw, 7rem) clamp(5rem, 10vw, 9rem);
+  }
+  .proc__grid {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: clamp(32px, 6vw, 96px);
+  }
+  .proc__sticky {
+    position: sticky;
+    top: calc(var(--header-h) + 40px);
+  }
+  .proc__eyebrow {
+    color: var(--paper-mute);
+  }
+  .proc__title {
+    margin-top: 24px;
+    max-width: 12ch;
+  }
+  .proc__lit {
+    color: #c2451a;
+  }
+  .proc__lede {
+    margin-top: 24px;
+    max-width: 30ch;
+    font-size: 1.1rem;
+    color: var(--paper-mute);
+  }
+  .proc__meter {
+    position: relative;
+    margin-top: 48px;
+    width: 220px;
+    height: 110px;
+    overflow: hidden;
+  }
+  .proc__sun {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 35%, var(--sun-1), var(--sun-2) 50%, var(--sun-3));
+    transform: translateY(calc(100% - var(--p, 0.25) * 50%));
+    box-shadow: 0 0 60px rgb(254 67 77 / 0.35);
+    transition: transform 0.2s linear;
+  }
+  .proc__line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--paper-ink);
+  }
+  .proc__steps {
+    counter-reset: s;
+  }
+  .step {
+    position: relative;
+    display: grid;
+    grid-template-columns: 72px 1fr;
+    gap: 16px;
+    padding: clamp(28px, 4vw, 44px) 0;
+    border-top: 1px solid rgb(20 18 16 / 0.14);
+  }
+  .step::before {
+    /* a etapa ativa “acende” a linha do horizonte */
+    content: '';
+    position: absolute;
+    left: 0;
+    top: -1px;
+    height: 2px;
+    width: 100%;
+    background: var(--sun);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.9s var(--ease-out);
+  }
+  .step.is-active::before {
+    transform: scaleX(1);
+  }
+  .step__n {
+    font-family: var(--f-display);
+    font-size: clamp(1.6rem, 2.6vw, 2.2rem);
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    color: var(--paper-mute);
+    line-height: 1;
+  }
+  .step.is-active .step__n {
+    color: #c2451a;
+  }
+  .step__t {
+    color: var(--paper-ink);
+  }
+  .step__p {
+    margin-top: 12px;
+    max-width: 42ch;
+    color: var(--paper-mute);
+    font-size: 1.05rem;
+  }
+  .step__cta {
+    margin-top: 28px;
+  }
+  .step__cta :global(.btn--primary) {
+    box-shadow: 0 10px 30px -12px rgb(216 84 31 / 0.6);
+  }
+  .proc :global(:focus-visible) {
+    outline-color: var(--paper-ink);
+  }
+  @media (max-width: 860px) {
+    .proc__grid {
+      grid-template-columns: 1fr;
+    }
+    .proc__sticky {
+      position: static;
+    }
+    .proc__meter {
+      display: none;
+    }
+    .step {
+      grid-template-columns: 52px 1fr;
+    }
+    .step__cta :global(.btn) {
+      white-space: normal;
+      height: auto;
+      min-height: 60px;
+      padding-block: 8px;
+    }
+  }
+  /* fundo claro: o laranja escurece para manter o contraste */
+  .proc__eyebrow {
+    color: #c2451a;
+  }
+  .proc :global(.hl) {
+    color: #c2451a;
+    text-shadow: none;
+  }
+  @media (max-width: 860px) {
+    .proc__body {
+      padding-block: 2.5rem 3.25rem;
+    }
+    .proc__sticky {
+      display: grid;
+      justify-items: center;
+      text-align: center;
+    }
+    .proc__title,
+    .proc__lede {
+      margin-inline: auto;
+    }
+    .proc__grid {
+      gap: 1.5rem;
+    }
+    .step {
+      gap: 10px;
+      padding: 18px 0;
+    }
+    .step__p {
+      margin-top: 6px;
+      font-size: 0.95rem;
+    }
+    .step__cta {
+      margin-top: 14px;
+    }
+  }
+</style>

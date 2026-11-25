@@ -1,0 +1,282 @@
+---
+import { DIFFERENTIALS } from '../data/content';
+import Button from './Button.astro';
+---
+<section class="diff" id="diferenca" aria-labelledby="diff-title" data-diff>
+  <div class="wrap">
+    <header class="diff__head">
+      <h2 class="diff__title" id="diff-title" data-split>Toda agência promete resultado. A diferença está no <em class="hl">caminho</em>.</h2>
+      <div class="toggle" role="group" aria-label="Comparar">
+        <button type="button" class="toggle__opt" data-mode="them" aria-pressed="false">Agência comum</button>
+        <button type="button" class="toggle__opt" data-mode="us" aria-pressed="true">Backe</button>
+        <span class="toggle__thumb" aria-hidden="true"></span>
+      </div>
+    </header>
+
+    <ul class="dgrid">
+      {
+        DIFFERENTIALS.map((d, i) => (
+          <li class="dcard" style={`--i:${i};--d:${(i % 2) * 0.08}s`} data-card>
+            <div class="dcard__inner">
+              <div class="dcard__face dcard__face--us" data-face="us">
+                <span class="dcard__who">Backe</span>
+                <h3 class="dcard__theme">{d.theme}</h3>
+                <p class="dcard__text">{d.us}</p>
+              </div>
+              <div class="dcard__face dcard__face--them" data-face="them" aria-hidden="true">
+                <span class="dcard__who">Agência comum</span>
+                <h3 class="dcard__theme">{d.theme}</h3>
+                <p class="dcard__text">{d.them}</p>
+              </div>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div class="diff__cta">
+      <p>Se é esse tipo de parceiro que você procura, o próximo passo é simples.</p>
+      <Button href="#diagnostico" data-cta="diferenciais">Quero conversar com a Backe</Button>
+    </div>
+  </div>
+</section>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-diff]');
+  if (root) {
+    const btns = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-mode]'));
+    const set = (mode: 'us' | 'them') => {
+      root.classList.toggle('is-them', mode === 'them');
+      btns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+      root.querySelectorAll<HTMLElement>('[data-face]').forEach((f) => f.setAttribute('aria-hidden', String(f.dataset.face !== mode)));
+    };
+    btns.forEach((b) => b.addEventListener('click', () => set(b.dataset.mode as 'us' | 'them')));
+    // na primeira vez que aparece: mostra a agência comum e vira para a Backe, card a card
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const io = new IntersectionObserver(
+        ([e]) => {
+          if (!e.isIntersecting) return;
+          io.disconnect();
+          set('them');
+          setTimeout(() => set('us'), 1500);
+        },
+        { threshold: 0.35 },
+      );
+      io.observe(root.querySelector('.dgrid')!);
+    }
+  }
+</script>
+
+<style>
+  .diff {
+    position: relative;
+    padding-block: clamp(5rem, 10vw, 8rem);
+    background:
+      radial-gradient(50% 60% at 100% 0%, rgb(254 67 77 / 0.14), transparent 70%),
+      var(--ink);
+    overflow: hidden;
+    /* clip: corta igual, mas o navegador não consegue rolar a seção para o lado ao focar um campo */
+    overflow: clip;
+  }
+  .diff__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    justify-content: space-between;
+    gap: 28px 48px;
+    margin-bottom: clamp(2.5rem, 5vw, 4rem);
+  }
+  .diff__title {
+    font-family: var(--f-display);
+    font-size: clamp(2.4rem, 5.4vw, 5.2rem);
+    font-weight: 600;
+    line-height: 0.94;
+    letter-spacing: -0.045em;
+    font-variation-settings: 'opsz' 96;
+    max-width: 15ch;
+    text-wrap: balance;
+  }
+
+  /* seletor */
+  .toggle {
+    position: relative;
+    display: inline-grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 5px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.05);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+  }
+  .toggle__opt {
+    position: relative;
+    z-index: 1;
+    min-height: 48px;
+    padding: 0 22px;
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--mute);
+    transition: color 0.35s;
+  }
+  .toggle__opt[aria-pressed='true'] {
+    color: var(--black);
+  }
+  .toggle__thumb {
+    position: absolute;
+    top: 5px;
+    bottom: 5px;
+    left: 50%;
+    width: calc(50% - 5px);
+    border-radius: 999px;
+    background: var(--orange);
+    box-shadow: 0 8px 30px -8px rgb(255 106 0 / 0.7);
+    transition: transform 0.6s var(--ease-out), background 0.4s;
+  }
+  .diff.is-them .toggle__thumb {
+    transform: translateX(-100%);
+    background: #d9d4ce;
+    box-shadow: none;
+  }
+
+  /* cards que viram */
+  .dgrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .dcard {
+    perspective: 1400px;
+  }
+  .dcard__inner {
+    position: relative;
+    display: grid;
+    height: 100%;
+    min-height: 210px;
+    transform-style: preserve-3d;
+    transition: transform 0.9s var(--ease-out);
+    transition-delay: calc(var(--i) * 0.09s);
+  }
+  .diff.is-them .dcard__inner {
+    transform: rotateY(180deg);
+  }
+  .dcard__face {
+    grid-area: 1 / 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 26px 26px 28px;
+    border-radius: 26px;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .dcard__face--us {
+    background:
+      radial-gradient(90% 80% at 100% 100%, rgb(254 67 77 / 0.24), transparent 65%),
+      linear-gradient(160deg, #1d1a19, #100f0e);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.08),
+      inset 0 0 0 1px rgb(255 106 0 / 0.22);
+  }
+  .dcard__face--them {
+    transform: rotateY(180deg);
+    background: #141312;
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .dcard__who {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--orange);
+  }
+  .dcard__face--them .dcard__who {
+    color: var(--mute-2);
+  }
+  .dcard__theme {
+    font-family: var(--f-display);
+    font-size: clamp(1.4rem, 2vw, 1.8rem);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+  }
+  .dcard__text {
+    margin-top: auto;
+    font-size: 1.02rem;
+    line-height: 1.5;
+    color: #e2ddd7;
+  }
+  .dcard__face--them .dcard__theme,
+  .dcard__face--them .dcard__text {
+    color: var(--mute-2);
+  }
+  .dcard__face--them .dcard__text {
+    text-decoration: line-through;
+    text-decoration-color: rgb(255 255 255 / 0.25);
+  }
+  .dcard:hover .dcard__face--us {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.1),
+      inset 0 0 0 1px rgb(255 106 0 / 0.5),
+      0 30px 60px -30px rgb(254 67 77 / 0.5);
+  }
+
+  .diff__cta {
+    margin-top: clamp(2.5rem, 5vw, 4rem);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px 32px;
+    color: var(--mute);
+    font-size: 1.1rem;
+  }
+  @media (max-width: 1000px) {
+    .dgrid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (max-width: 640px) {
+    .dgrid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .dcard__inner {
+      min-height: 0;
+    }
+    .dcard__face {
+      gap: 6px;
+      padding: 16px 18px 18px;
+      border-radius: 20px;
+    }
+    .dcard__theme {
+      font-size: 1.25rem;
+    }
+    .dcard__text {
+      margin-top: 4px;
+      font-size: 0.95rem;
+    }
+    .toggle {
+      width: 100%;
+    }
+  }
+  @media (max-width: 900px) {
+    .diff {
+      padding-block: 3.25rem;
+    }
+    .diff__head {
+      justify-content: center;
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+    .diff__title {
+      margin-inline: auto;
+    }
+    .diff__cta {
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+      margin-top: 2rem;
+    }
+  }
+</style>

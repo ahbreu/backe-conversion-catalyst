@@ -1,0 +1,136 @@
+---
+/**
+ * Vídeo com capa. Usa os arquivos gerados por scripts/encode-videos.sh:
+ *   video/{base}-mobile.mp4, video/{base}-desktop.mp4 e as capas {…}-poster.webp
+ * O comportamento (fonte, play, botão de toque, erro) fica em src/scripts/video.ts.
+ */
+import { existsSync } from 'node:fs';
+import { asset } from '../lib/url';
+interface Props {
+  base: string;
+  mode?: 'hero' | 'auto';
+  class?: string;
+  id?: string;
+  label?: string;
+  /** botão de play fora do wrapper (ex.: hero, cujo wrapper é recortado por máscara) */
+  externalPlay?: boolean;
+}
+const { base, mode = 'auto', class: cls, id, label, externalPlay = false } = Astro.props;
+const v = (s: string) => asset(`video/${base}-${s}`);
+const hero = mode === 'hero';
+// loop em WebP animado (último degrau do fallback, gerado por scripts/encode-loops.sh):
+// versões próprias de celular e desktop quando existem (reel), senão um arquivo só ({base}-loop.webp)
+const own = existsSync(`public/video/${base}-desktop-loop.webp`);
+const loopMobile = own ? v('mobile-loop.webp') : v('loop.webp');
+const loopDesktop = own ? v('desktop-loop.webp') : v('loop.webp');
+---
+<div class:list={['vbox', cls]} data-vbox={mode} id={id}>
+  <picture class="vbox__poster" aria-hidden="true">
+    <source media="(max-width: 900px)" srcset={v('mobile-poster.webp')} type="image/webp" />
+    <img
+      src={v('desktop-poster.webp')}
+      alt=""
+      decoding="async"
+      loading={hero ? 'eager' : 'lazy'}
+      fetchpriority={hero ? 'high' : undefined}
+    />
+  </picture>
+  <video
+    class="vbox__video"
+    muted
+    loop
+    playsinline
+    webkit-playsinline
+    preload="none"
+    data-src-mobile={v('mobile.mp4')}
+    data-src-desktop={v('desktop.mp4')}
+    data-loop-webp-mobile={loopMobile}
+    data-loop-webp-desktop={loopDesktop}
+    aria-label={label}
+    aria-hidden={label ? undefined : 'true'}
+  ></video>
+  {
+    !externalPlay && (
+      <button class="vbox__play" type="button" aria-label="Reproduzir vídeo" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor" /></svg>
+      </button>
+    )
+  }
+</div>
+
+<style is:global>
+  .vbox {
+    position: relative;
+    overflow: hidden;
+    background: #0b0908;
+  }
+  .vbox__poster,
+  .vbox__poster img,
+  .vbox__video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .vbox__video {
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .vbox.is-playing .vbox__video {
+    opacity: 1;
+  }
+  /* fallback: o mesmo MP4 (Safari toca como GIF) ou o loop WebP num <img>, no lugar do <video> */
+  .video-as-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .vbox.is-error .vbox__video {
+    display: none;
+  }
+  /* botão próprio de play: aparece só quando o navegador bloqueia o autoplay */
+  .vbox__play {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    margin: -32px 0 0 -32px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--sun);
+    color: #1a0b05;
+    box-shadow:
+      0 12px 40px -8px rgb(254 67 77 / 0.7),
+      0 0 0 6px rgb(255 255 255 / 0.12);
+    cursor: pointer;
+    animation: vbox-pulse 2.4s ease-in-out infinite;
+  }
+  .vbox__play[hidden] {
+    display: none;
+  }
+  .vbox__play svg {
+    width: 26px;
+    height: 26px;
+    margin-left: 3px;
+  }
+  @keyframes vbox-pulse {
+    50% {
+      box-shadow:
+        0 12px 40px -8px rgb(254 67 77 / 0.7),
+        0 0 0 12px rgb(255 255 255 / 0.04);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .vbox__play {
+      animation: none;
+    }
+  }
+</style>
