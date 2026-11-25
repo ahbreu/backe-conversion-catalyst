@@ -10,6 +10,8 @@ META_GRAPH_API_VERSION = "v23.0"
 META_WHATSAPP_TEMPLATE_NAME = "backe_site_lead_welcome"
 META_WHATSAPP_TEMPLATE_LANGUAGE = "pt_BR"
 META_WHATSAPP_FOLLOWUP_TEMPLATE_NAME = "backe_site_lead_followup"
+# Aviso interno ao vendedor atribuído a cada lead novo (vazio desativa).
+META_WHATSAPP_SELLER_TEMPLATE_NAME = "backe_site_lead_seller_alert"
 META_REQUEST_TIMEOUT_MS = "10000"
 META_RETRY_ATTEMPTS = "3"
 META_RETRY_BASE_DELAY_MS = "500"
