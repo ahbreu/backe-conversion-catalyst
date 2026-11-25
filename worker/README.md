@@ -30,6 +30,29 @@ npm run worker:deploy
 
 Antes do deploy, crie e aprove na Meta o template definido em `META_WHATSAPP_TEMPLATE_NAME`. O corpo precisa receber, nesta ordem, `{{1}}` para o nome e `{{2}}` para o serviço de interesse.
 
+## Aviso à equipe (vendedores)
+
+Cada lead novo é atribuído a um vendedor ativo da tabela `sellers` (rodízio) e o vendedor recebe **na hora** um WhatsApp com o template `META_WHATSAPP_SELLER_TEMPLATE_NAME` (`backe_site_lead_seller_alert`). A mensagem ao cliente continua esperando o horário comercial. Se o aviso falhar, a falha fica registrada em `lead_messages` (`message_type = 'seller_alert'`, `status = 'failed'`) e o contato com o cliente segue normalmente.
+
+Template para aprovar na Meta (categoria **Utilidade**, idioma `pt_BR`), com os parâmetros nesta ordem:
+
+```text
+Olá, {{1}}! Novo lead pelo site da BACKE.
+Nome: {{2}}
+WhatsApp: {{3}}
+Interesse: {{4}}
+Empresa/Instagram: {{5}}
+```
+
+Vendedores são cadastrados direto no D1 (telefone só com dígitos e DDI):
+
+```sql
+INSERT INTO sellers (name, phone, active) VALUES ('Nome', '5561999999999', 1);
+UPDATE sellers SET active = 0 WHERE id = ?; -- tira do rodízio
+```
+
+Sem o template aprovado, o aviso falha (fica registrado) e o resto do fluxo segue. Para desligar o aviso, deixe `META_WHATSAPP_SELLER_TEMPLATE_NAME` vazio.
+
 Nunca coloque o token da Meta no TOML, GitHub ou frontend como variável `VITE_*`.
 
 ## Estados

@@ -507,6 +507,45 @@ const buildMetaTemplateRequest = (leadPayload, env, templateName = env.META_WHAT
   };
 };
 
+// Aviso interno para o vendedor atribuído. Corpo do template, nesta ordem:
+// {{1}} nome do vendedor, {{2}} nome do lead, {{3}} WhatsApp do lead, {{4}} serviço de interesse, {{5}} empresa/Instagram.
+export const buildSellerAlertRequest = (seller, leadPayload, env) => {
+  const templateName = env.META_WHATSAPP_SELLER_TEMPLATE_NAME;
+  if (!templateName) throw new Error("Seller alert template is not configured.");
+  const sellerPhone = normalizePhone(seller?.phone);
+  if (!sellerPhone) throw new Error("Seller has no WhatsApp number.");
+  const lead = leadPayload.lead || {};
+  // Meta recusa parâmetro vazio ou com quebra de linha: troca por "-" e achata espaços.
+  const text = (value) => String(value ?? "").replace(/\s+/g, " ").trim().slice(0, 120) || "-";
+  return {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: sellerPhone,
+    type: "template",
+    template: {
+      name: templateName,
+      language: { code: env.META_WHATSAPP_TEMPLATE_LANGUAGE || "pt_BR" },
+      components: [{ type: "body", parameters: [
+        { type: "text", text: text(seller.name) },
+        { type: "text", text: text(lead.name) },
+        { type: "text", text: text(lead.phone) },
+        { type: "text", text: text(lead.serviceInterest) },
+        { type: "text", text: text(lead.companyName) },
+      ] }],
+    },
+  };
+};
+
+const sendSellerAlert = async (seller, leadPayload, env) => {
+  if (!env.META_WHATSAPP_ACCESS_TOKEN) throw new Error("Meta WhatsApp is not configured.");
+  const data = await requestJson(`${getMetaUrl(env)}/messages`, env, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${env.META_WHATSAPP_ACCESS_TOKEN}` },
+    body: JSON.stringify(buildSellerAlertRequest(seller, leadPayload, env)),
+  });
+  return { ok: true, messageId: data?.messages?.[0]?.id || null };
+};
+
 const sendLeadToMeta = async (leadPayload, env, templateName = env.META_WHATSAPP_TEMPLATE_NAME) => {
   if (!env.META_WHATSAPP_ACCESS_TOKEN) throw new Error("Meta WhatsApp is not configured.");
   const data = await requestJson(`${getMetaUrl(env)}/messages`, env, {
@@ -926,7 +965,7 @@ const handleRequest = async (request, env) => {
       "SELECT COUNT(*) AS count FROM leads WHERE contact_status IN ('automation_failed', 'followup_failed')"
     ).first();
     const unassigned = await env.LEADS_DB.prepare(
-      "SELECT COUNT(*) AS count FROM leads WHERE seller_id IS NULL AND created_at < datetime('now', '-1 hour')"
+      "SELECT COUNT(*) AS count FROM leads WHERE seller_id IS NULL AND contact_status != 'closed' AND created_at < datetime('now', '-1 hour')"
     ).first();
     const reports = await env.LEADS_DB.prepare(
       "SELECT * FROM automation_reports ORDER BY period_start DESC LIMIT 8"
@@ -1036,10 +1075,37 @@ export class LeadAutomationWorkflow extends WorkflowEntrypoint {
       return { leadId, status: "received", reason: "meta_not_configured" };
     }
 
+    // A equipe fica sabendo na hora; só a mensagem ao cliente espera o horário comercial.
+    const sellerId = await step.do("assign seller", async () => assignSeller(this.env, leadId));
+    if (sellerId && this.env.META_WHATSAPP_SELLER_TEMPLATE_NAME) {
+      try {
+        await step.do(
+          "notify assigned seller",
+          { retries: { limit: 5, delay: "30 seconds", backoff: "exponential" }, timeout: "2 minutes" },
+          async () => {
+            const seller = await this.env.LEADS_DB.prepare("SELECT id, name, phone FROM sellers WHERE id = ?").bind(sellerId).first();
+            const response = await sendSellerAlert(seller, lead.payload, this.env);
+            await this.env.LEADS_DB.prepare(
+              `INSERT OR IGNORE INTO lead_messages (lead_id, direction, message_type, template_name, meta_message_id, status)
+               VALUES (?, 'outbound', 'seller_alert', ?, ?, 'sent')`
+            ).bind(leadId, this.env.META_WHATSAPP_SELLER_TEMPLATE_NAME, response.messageId).run();
+            return { messageId: response.messageId };
+          }
+        );
+      } catch (error) {
+        // O aviso interno não pode travar o contato com o cliente: registra e segue.
+        await step.do("record seller alert failure", async () => {
+          log("warn", "seller_alert_failed", { leadId, sellerId, reason: String(error?.message || "unknown").slice(0, 200) });
+          await this.env.LEADS_DB.prepare(
+            `INSERT INTO lead_messages (lead_id, direction, message_type, template_name, status, error_message)
+             VALUES (?, 'outbound', 'seller_alert', ?, 'failed', ?)`
+          ).bind(leadId, this.env.META_WHATSAPP_SELLER_TEMPLATE_NAME, String(error?.message || "Seller alert failed").slice(0, 500)).run();
+        });
+      }
+    }
+
     const initialDelay = millisecondsUntilBusinessHours(this.env);
     if (initialDelay > 0) await step.sleep("wait for initial business hours", `${Math.max(1, Math.ceil(initialDelay / 60_000))} minutes`);
-
-    await step.do("assign seller", async () => assignSeller(this.env, leadId));
 
     let initialMessage;
     try {
